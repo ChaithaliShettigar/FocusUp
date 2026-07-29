@@ -1,0 +1,116 @@
+# Dependencies
+node_modules/
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+
+# Build outputs
+dist/
+dist-ssr/
+build/
+*.tgz
+.next/
+out/
+
+# Environment variables
+.env
+.env.local
+.env.development
+.env.production
+.env.test
+*.local
+.env*.local
+
+# Logs and cache
+logs/
+logs/*.log
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+.cache/
+
+# OS files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+desktop.ini
+
+# IDE and Editor directories
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+!.vscode/launch.json
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+*~
+*.sublime-workspace
+*.sublime-project
+.vscode-oss
+*.iml
+
+# Testing
+coverage/
+.nyc_output/
+.jest/
+*.lcov
+.mocharc.json
+
+# Temporary and generated files
+tmp/
+temp/
+.turbo/
+
+# Vite
+.vite/
+
+# Local development
+.pnp
+.pnp.js
+
+# ===== ADDITIONAL SECURITY PATTERNS =====
+# API Configuration files (CRITICAL!)
+config/api-keys.*
+config/firebase-config.*
+config/google-config.*
+config/stripe-config.*
+config/auth0-config.*
+config/oauth-config.*
+api-config.*
+
+# Third-party service keys
+firebase-config.js
+google-services.json
+GoogleService-Info.plist
+aws-exports.js
+
+# Build-time secrets
+.env.production.local
+.env.development.local
+build-secrets.*
+deploy-config.*
+
+# Deployment and CI/CD
+.vercel/
+.netlify/
+.firebase/
+.surge/
+deploy-config.*
+ci-config.*
+
+# Security scans
+security-scan-results.*
+vulnerability-report.*
+.snyk
+
+# ⚠️  NEVER commit files with real API keys or secrets!

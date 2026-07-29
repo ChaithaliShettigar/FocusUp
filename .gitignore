@@ -1,0 +1,155 @@
+# =====================================================
+#  COMPREHENSIVE SECURITY .GITIGNORE
+#  NEVER COMMIT SENSITIVE INFORMATION TO GITHUB!
+# =====================================================
+
+# ===== CRITICAL SECURITY FILES =====
+# Environment Variables
+**/.env
+**/.env.local
+**/.env.*.local
+**/.env.production
+**/.env.development
+**/.env.test
+**/.env.staging
+**/.env.beta
+.env*
+!.env.example
+
+# API Keys and Secrets
+**/config/keys.js
+**/config/secrets.*
+**/config/credentials.*
+**/*credentials*
+**/*secrets*
+**/*keys*
+**/*api-keys*
+**/*apikeys*
+**/auth-config.*
+**/service-account.*
+*.pem
+*.key
+*.cert
+*.crt
+*.p12
+*.pfx
+*.jks
+*.keystore
+
+# Database Connection Strings
+**/database-config.*
+**/db-config.*
+**/connection-string.*
+
+# OAuth and JWT Secrets
+**/oauth-config.*
+**/jwt-config.*
+**/firebase-config.*
+**/aws-config.*
+**/azure-config.*
+**/google-config.*
+
+# Cloud Provider Credentials
+.aws/
+.azure/
+.gcp/
+google-services.json
+GoogleService-Info.plist
+
+# ===== DEVELOPMENT FILES =====
+# Dependencies
+node_modules/
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+.pnpm/
+
+# Build outputs
+dist/
+build/
+.next/
+.nuxt/
+.vuepress/dist/
+out/
+*.tgz
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+pnpm-debug.log*
+.cache/
+
+# Database Files
+*.db
+*.sqlite
+*.sqlite3
+*.mdb
+
+# ===== IDE AND EDITOR =====
+.vscode/settings.json
+.vscode/launch.json
+.idea/
+*.swp
+*.swo
+*~
+*.sublime-workspace
+*.sublime-project
+.vs/
+*.iml
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+
+# ===== OPERATING SYSTEM =====
+.DS_Store
+.DS_Store?
+Thumbs.db
+desktop.ini
+ehthumbs.db
+._*
+.Spotlight-V100
+.Trashes
+
+# ===== TEMPORARY FILES =====
+*.tmp
+*.temp
+.cache/
+tmp/
+temp/
+.turbo/
+dist-ssr/
+
+# ===== TESTING AND COVERAGE =====
+coverage/
+.nyc_output/
+.jest/
+*.lcov
+test-results/
+
+# ===== BACKUP AND SECURITY SCANS =====
+*.backup
+*.bak
+*.old
+*.orig
+*.save
+security-scan-results.*
+vulnerability-report.*
+
+# ===== MISCELLANEOUS =====
+.history/
+.eslintcache
+*.tsbuildinfo
+
+# ===== UPLOADS =====
+focusup-backend/uploads/
+
+# WARNING: Double-check before committing ANY file that might contain:
+# - API keys, tokens, passwords
+# - Database connection strings
+# - Private certificates or keys
+# - Personal information or credentials
