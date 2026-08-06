@@ -20,7 +20,6 @@ import { Profile } from './pages/Profile'
 import { Settings } from './pages/Settings'
 import { Search } from './pages/Search'
 import { Auth } from './pages/Auth'
-import { DebugAuth } from './components/DebugAuth'
 
 const PageWrapper = ({ children }) => <div className="app-shell min-h-screen">{children}</div>
 
@@ -94,7 +93,7 @@ function App() {
       <HelpBot />
       {!hideNav && <ActiveSessionBanner />}
       {!hideNav && <OnlineUsersIndicator />}
-      {!hideNav && <DebugAuth />}
+
       <MiniBreak open={showBreak} onClose={() => setShowBreak(false)} />
       {hideNav ? null : (
         <footer className="mt-10 bg-transparent pb-10 text-center text-xs text-ink/60">
