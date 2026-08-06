@@ -1,4 +1,4 @@
-﻿import { motion } from 'framer-motion'
+import { motion } from 'framer-motion'
 import { Link } from 'react-router-dom'
 import { Star, Users, Award, ArrowRight } from 'lucide-react'
 
@@ -266,17 +266,6 @@ export const HeroParallax = () => {
         </div>
       </section>
 
-      {/* Floating Join Badge */}
-      <motion.div
-        className="fixed bottom-8 right-8 bg-gradient-to-r from-teal to-blue-600 text-white px-6 py-3 rounded-full shadow-2xl shadow-teal/30 z-50 flex items-center gap-3"
-        initial={{ opacity: 0, y: 100 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 2, duration: 0.6 }}
-        whileHover={{ scale: 1.05 }}
-      >
-        <Users className="w-5 h-5" />
-        <span className="font-semibold">Join 10,000+ focused students</span>
-      </motion.div>
     </div>
   )
 }

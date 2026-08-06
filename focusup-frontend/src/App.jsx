@@ -92,9 +92,9 @@ function App() {
         <Route path="*" element={<Landing />} />
       </Routes>
       <HelpBot />
-      <ActiveSessionBanner />
-      <OnlineUsersIndicator />
-      <DebugAuth />
+      {!hideNav && <ActiveSessionBanner />}
+      {!hideNav && <OnlineUsersIndicator />}
+      {!hideNav && <DebugAuth />}
       <MiniBreak open={showBreak} onClose={() => setShowBreak(false)} />
       {hideNav ? null : (
         <footer className="mt-10 bg-transparent pb-10 text-center text-xs text-ink/60">
