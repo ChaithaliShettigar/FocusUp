@@ -21,7 +21,7 @@ import { Settings } from './pages/Settings'
 import { Search } from './pages/Search'
 import { Auth } from './pages/Auth'
 
-const PageWrapper = ({ children }) => <div className="app-shell min-h-screen">{children}</div>
+const PageWrapper = ({ children }) => <div className="app-shell min-h-screen flex flex-col">{children}</div>
 
 function useActiveSession() {
   const sessions = useFocusStore((s) => s.sessions)
@@ -95,11 +95,7 @@ function App() {
       {!hideNav && <OnlineUsersIndicator />}
 
       <MiniBreak open={showBreak} onClose={() => setShowBreak(false)} />
-      {hideNav ? null : (
-        <footer className="mt-10 bg-transparent pb-10 text-center text-xs text-ink/60">
-          FocusUp respects zero-state: nothing is prefilled. Add your own content to begin.
-        </footer>
-      )}
+
     </PageWrapper>
   )
 }

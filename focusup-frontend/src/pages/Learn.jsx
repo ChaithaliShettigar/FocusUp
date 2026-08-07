@@ -579,63 +579,69 @@ export const Learn = () => {
             </div>
           </div>
         )}
-        <div className="grid gap-4 md:grid-cols-3">
-          <div className="rounded-3xl bg-white/85 p-5 shadow-soft">
-            <h3 className="text-lg font-semibold text-ink">Upload PDF</h3>
-            <p className="text-sm text-ink/70">Files stay local to this browser session.</p>
+        <div className="grid gap-6 md:grid-cols-3">
+          <div className="group rounded-3xl bg-white/80 hover:bg-white/95 p-8 shadow-soft hover:shadow-xl border border-white/70 backdrop-blur-md min-h-[260px] flex flex-col justify-between transition-all duration-300">
+            <div>
+              <h3 className="text-xl font-bold text-ink">Upload PDF</h3>
+              <p className="text-sm font-medium text-ink/70 mt-1">Files stay local to your browser session for private studying.</p>
+            </div>
             <input
               type="file"
               accept="application/pdf"
               onChange={handlePdf}
-              className="mt-3 w-full rounded-2xl border border-ink/10 bg-white px-3 py-2 text-sm"
+              className="mt-4 w-full rounded-2xl border border-ink/10 bg-white px-4 py-3 text-sm focus:border-teal focus:outline-none"
               disabled={!isAuthenticated}
             />
           </div>
-          <form onSubmit={handleYoutube} className="rounded-3xl bg-white/85 p-5 shadow-soft">
-            <h3 className="text-lg font-semibold text-ink">Add YouTube link</h3>
-            <p className="text-sm text-ink/70">Videos open inside FocusUp so focus tracking works.</p>
-            <div className="mt-3 flex flex-col gap-2">
+          <form onSubmit={handleYoutube} className="group rounded-3xl bg-white/80 hover:bg-white/95 p-8 shadow-soft hover:shadow-xl border border-white/70 backdrop-blur-md min-h-[260px] flex flex-col justify-between transition-all duration-300">
+            <div>
+              <h3 className="text-xl font-bold text-ink">Add YouTube link</h3>
+              <p className="text-sm font-medium text-ink/70 mt-1">Videos open inside FocusUp with automated focus tracking.</p>
+            </div>
+            <div className="mt-4 flex flex-col gap-3">
               <input
                 name="youtube"
                 placeholder="https://youtube.com/watch?v=..."
-                className="w-full rounded-2xl border border-ink/10 bg-white px-3 py-2 text-sm"
+                className="w-full rounded-2xl border border-ink/10 bg-white px-4 py-3 text-sm focus:border-teal focus:outline-none"
                 disabled={!isAuthenticated}
               />
-              <button className={`self-start rounded-full px-4 py-2 text-sm font-semibold text-sand shadow-soft ${!isAuthenticated ? 'bg-ink/50 cursor-not-allowed' : 'bg-ink'}`} disabled={!isAuthenticated}>
+              <button className={`self-start rounded-full px-6 py-2.5 text-sm font-bold text-sand shadow-sm transition-all ${!isAuthenticated ? 'bg-ink/50 cursor-not-allowed' : 'bg-ink hover:scale-105'}`} disabled={!isAuthenticated}>
                 Save link
               </button>
             </div>
           </form>
-          <form onSubmit={handleCode} className="rounded-3xl bg-white/85 p-5 shadow-soft">
-            <h3 className="text-lg font-semibold text-ink">Coding study</h3>
-            <p className="text-sm text-ink/70">Track focused coding with notes or a snippet.</p>
-            <div className="mt-3 flex flex-col gap-2">
+          <form onSubmit={handleCode} className="group rounded-3xl bg-white/80 hover:bg-white/95 p-8 shadow-soft hover:shadow-xl border border-white/70 backdrop-blur-md min-h-[260px] flex flex-col justify-between transition-all duration-300">
+            <div>
+              <h3 className="text-xl font-bold text-ink">Coding study</h3>
+              <p className="text-sm font-medium text-ink/70 mt-1">Track focused coding challenges with notes or code snippets.</p>
+            </div>
+            <div className="mt-4 flex flex-col gap-3">
               <input
                 value={codeTitle}
                 onChange={(e) => setCodeTitle(e.target.value)}
-                placeholder="Topic or challenge"
-                className="w-full rounded-2xl border border-ink/10 bg-white px-3 py-2 text-sm"
+                placeholder="Topic or challenge name"
+                className="w-full rounded-2xl border border-ink/10 bg-white px-4 py-2.5 text-sm focus:border-teal focus:outline-none"
                 disabled={!isAuthenticated}
               />
               <textarea
                 value={codeNotes}
                 onChange={(e) => setCodeNotes(e.target.value)}
                 placeholder="Notes, snippet, or TODOs"
-                className="h-24 w-full rounded-2xl border border-ink/10 bg-white px-3 py-2 text-sm font-mono"
+                className="h-24 w-full rounded-2xl border border-ink/10 bg-white px-4 py-2.5 text-sm font-mono focus:border-teal focus:outline-none"
                 disabled={!isAuthenticated}
               />
-              <button className={`self-start rounded-full px-4 py-2 text-sm font-semibold text-sand shadow-soft ${!isAuthenticated ? 'bg-ink/50 cursor-not-allowed' : 'bg-ink'}`} disabled={!isAuthenticated}>
+              <button className={`self-start rounded-full px-6 py-2.5 text-sm font-bold text-sand shadow-sm transition-all ${!isAuthenticated ? 'bg-ink/50 cursor-not-allowed' : 'bg-ink hover:scale-105'}`} disabled={!isAuthenticated}>
                 Save coding card
               </button>
             </div>
           </form>
         </div>
 
-        <div className="rounded-3xl bg-white/80 p-5 shadow-soft">
-          <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="rounded-3xl bg-white/80 hover:bg-white/95 p-8 shadow-soft hover:shadow-xl border border-white/70 backdrop-blur-md transition-all duration-300">
+          <div className="flex flex-wrap items-center justify-between gap-4">
             <div>
-              <h3 className="text-lg font-semibold text-ink">Your materials</h3>
-              <p className="text-sm text-ink/70">Everything starts empty. Add items above to begin.</p>
+              <h3 className="text-xl font-bold text-ink">Your materials</h3>
+              <p className="text-sm font-medium text-ink/70 mt-0.5">Everything starts empty. Add items above to begin.</p>
             </div>
             <div className="flex items-center gap-3">
               <label className="text-sm text-ink/70">Target (minutes)</label>

@@ -2,6 +2,7 @@ import { DoodleBackground } from '../components/DoodleBackground'
 import { useFocusStore } from '../store/useFocusStore'
 import { Bar, BarChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis, LineChart, Line, PieChart, Pie, Cell } from 'recharts'
 import { FocusScoreBadge } from '../components/FocusScoreBadge'
+import { Target, Activity, BarChart2 } from 'lucide-react'
 
 export const Analytics = () => {
   const sessions = useFocusStore((s) => s.sessions)
@@ -33,11 +34,11 @@ export const Analytics = () => {
 
   return (
     <DoodleBackground>
-      <div className="flex flex-col gap-8">
+      <div className="flex flex-col gap-8 pb-12">
         <div className="flex items-start justify-between">
           <div>
-            <h2 className="text-3xl font-bold text-ink">Your Analytics Dashboard</h2>
-            <p className="text-ink/70">Visual insights into your focus patterns, activity, and study consistency.</p>
+            <h2 className="text-3xl sm:text-4xl lg:text-5xl font-black text-ink tracking-tight">Your Analytics Dashboard</h2>
+            <p className="text-ink/70 mt-1 text-sm sm:text-base">Visual insights into your focus patterns, activity, and study consistency.</p>
           </div>
           <div className="hidden lg:block">
             <FocusScoreBadge 
@@ -49,22 +50,43 @@ export const Analytics = () => {
           </div>
         </div>
 
-        <div className="grid gap-4 md:grid-cols-3">
-          <Metric title="Planned vs actual" value={`${totalActual}/${totalPlanned || 1} min`} hint="Aim to match or exceed planned time." />
-          <Metric title="Active study time" value={`${totalActive} min`} hint="Scrolling, clicks, typing, touch." />
-          <Metric title="Sessions logged" value={sessions.length} hint="More sessions give better insights." />
+        <div className="grid gap-6 md:grid-cols-3">
+          <Metric 
+            title="Planned vs actual" 
+            value={`${totalActual}/${totalPlanned || 1} min`} 
+            hint="Aim to match or exceed planned time"
+            icon={Target}
+            iconBg="bg-amber-500/10"
+            iconColor="text-amber-600"
+          />
+          <Metric 
+            title="Active study time" 
+            value={`${totalActive} min`} 
+            hint="Scrolling, typing, active interactions" 
+            icon={Activity}
+            iconBg="bg-teal-500/10"
+            iconColor="text-teal-600"
+          />
+          <Metric 
+            title="Sessions logged" 
+            value={sessions.length} 
+            hint="More sessions yield deeper insights" 
+            icon={BarChart2}
+            iconBg="bg-purple-500/10"
+            iconColor="text-purple-600"
+          />
         </div>
 
         {sessions.length === 0 ? (
-          <div className="rounded-3xl bg-clay/60 p-8 text-center text-ink/70 shadow-soft">
-            <p className="text-lg">No data yet. Complete a session to see charts and analytics.</p>
+          <div className="rounded-3xl bg-white/80 p-12 text-center text-ink/70 shadow-soft border border-white/70 backdrop-blur-md min-h-[220px] flex items-center justify-center">
+            <p className="text-lg font-bold">No study session data logged yet. Complete a study session on the Learn page to generate detailed analytics charts.</p>
           </div>
         ) : (
           <div className="grid gap-8 lg:grid-cols-2">
             {/* Planned vs Actual Bar Chart */}
-            <div className="rounded-3xl bg-white/80 p-6 shadow-soft">
-              <h3 className="mb-4 text-lg font-semibold text-ink">Planned vs Actual Study Time</h3>
-              <div className="h-[300px] w-full">
+            <div className="rounded-3xl bg-white/80 hover:bg-white/95 p-8 shadow-soft hover:shadow-xl border border-white/70 backdrop-blur-md transition-all duration-300">
+              <h3 className="mb-6 text-xl font-extrabold text-ink">Planned vs Actual Study Time</h3>
+              <div className="h-[360px] w-full">
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={chartData} margin={{ top: 16, right: 16, left: -16, bottom: 8 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#e7ddcb" />
@@ -80,9 +102,9 @@ export const Analytics = () => {
             </div>
 
             {/* Activity Distribution Pie Chart */}
-            <div className="rounded-3xl bg-white/80 p-6 shadow-soft">
-              <h3 className="mb-4 text-lg font-semibold text-ink">Active vs Idle Time (Total)</h3>
-              <div className="flex h-[300px] w-full items-center justify-center">
+            <div className="rounded-3xl bg-white/80 hover:bg-white/95 p-8 shadow-soft hover:shadow-xl border border-white/70 backdrop-blur-md transition-all duration-300">
+              <h3 className="mb-6 text-xl font-extrabold text-ink">Active vs Idle Time (Total)</h3>
+              <div className="flex h-[360px] w-full items-center justify-center">
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
                     <Pie
@@ -91,7 +113,7 @@ export const Analytics = () => {
                       cy="50%"
                       labelLine={false}
                       label={({ name, value, percent }) => `${name}: ${value}m (${(percent * 100).toFixed(0)}%)`}
-                      outerRadius={100}
+                      outerRadius={120}
                       fill="#8884d8"
                       dataKey="value"
                     >
@@ -99,34 +121,16 @@ export const Analytics = () => {
                         <Cell key={`cell-${index}`} fill={entry.fill} />
                       ))}
                     </Pie>
-                    <Tooltip formatter={(value) => `${value} min`} />
+                    <Tooltip />
                   </PieChart>
                 </ResponsiveContainer>
               </div>
             </div>
 
-            {/* Active & Idle Time Breakdown */}
-            <div className="rounded-3xl bg-white/80 p-6 shadow-soft">
-              <h3 className="mb-4 text-lg font-semibold text-ink">Active vs Idle Time per Session</h3>
-              <div className="h-[300px] w-full">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={chartData} margin={{ top: 16, right: 16, left: -16, bottom: 8 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#e7ddcb" />
-                    <XAxis dataKey="name" stroke="#1f2933" />
-                    <YAxis stroke="#1f2933" />
-                    <Tooltip cursor={{ fill: 'rgba(139, 211, 221, 0.1)' }} />
-                    <Legend />
-                    <Bar dataKey="active" fill="#1f2933" radius={[6, 6, 0, 0]} name="Active (min)" />
-                    <Bar dataKey="idle" fill="#8bd3dd" radius={[6, 6, 0, 0]} name="Idle (min)" />
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-            </div>
-
-            {/* Focus Ratio Trend Line Chart */}
-            <div className="rounded-3xl bg-white/80 p-6 shadow-soft">
-              <h3 className="mb-4 text-lg font-semibold text-ink">Focus Consistency Trend</h3>
-              <div className="h-[300px] w-full">
+            {/* Focus Ratio Line Chart */}
+            <div className="rounded-3xl bg-white/80 hover:bg-white/95 p-8 shadow-soft hover:shadow-xl border border-white/70 backdrop-blur-md transition-all duration-300 lg:col-span-2">
+              <h3 className="mb-6 text-xl font-extrabold text-ink">Focus Quality Ratio per Session</h3>
+              <div className="h-[360px] w-full">
                 <ResponsiveContainer width="100%" height="100%">
                   <LineChart data={focusPatternData} margin={{ top: 16, right: 16, left: -16, bottom: 8 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#e7ddcb" />
@@ -145,10 +149,28 @@ export const Analytics = () => {
   )
 }
 
-const Metric = ({ title, value, hint }) => (
-  <div className="rounded-3xl bg-white/80 p-5 shadow-soft">
-    <p className="text-sm text-ink/60">{title}</p>
-    <div className="mt-2 text-2xl font-bold text-ink">{value}</div>
-    <p className="mt-1 text-xs text-ink/60">{hint}</p>
+const Metric = ({ title, value, hint, icon: Icon, iconBg = 'bg-teal-500/10', iconColor = 'text-teal-600' }) => (
+  <div className="group relative overflow-hidden rounded-3xl bg-white/80 hover:bg-white/95 p-8 sm:p-9 shadow-soft hover:shadow-xl border border-white/70 backdrop-blur-md transition-all duration-300 hover:-translate-y-1.5 flex flex-col justify-between min-h-[210px]">
+    <div className="absolute -right-8 -top-8 h-32 w-32 rounded-full bg-gradient-to-br from-teal-400/10 to-amber-400/10 blur-xl group-hover:scale-150 transition-transform duration-500 pointer-events-none" />
+
+    <div>
+      <div className="flex items-center justify-between">
+        <p className="text-sm font-bold tracking-wide text-ink/60 uppercase">{title}</p>
+        {Icon && (
+          <div className={`flex h-12 w-12 items-center justify-center rounded-2xl ${iconBg} ${iconColor} transition-transform group-hover:scale-110 duration-300 shadow-xs`}>
+            <Icon size={24} />
+          </div>
+        )}
+      </div>
+      <div className="mt-4 text-4xl sm:text-5xl font-black text-ink tracking-tight">
+        {value}
+      </div>
+    </div>
+
+    {hint && (
+      <div className="mt-5 border-t border-ink/5 pt-3.5">
+        <p className="text-xs font-semibold text-ink/60">{hint}</p>
+      </div>
+    )}
   </div>
 )
