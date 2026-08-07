@@ -51,7 +51,7 @@ export const HeroParallax = () => {
                 Transform your study sessions with AI-powered focus tracking, gamification, and collaborative learning. Make every minute count.
               </p>
               <div className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-4">
-                <Link to="/dashboard" className="rounded-full bg-gradient-to-r from-ink to-ink/80 px-8 py-4 text-base font-semibold text-white shadow-lg transition-all hover:scale-105 active:scale-95 flex items-center gap-2 whitespace-nowrap">
+                <Link to="/auth" className="rounded-full bg-gradient-to-r from-ink to-ink/80 px-8 py-4 text-base font-semibold text-white shadow-lg transition-all hover:scale-105 active:scale-95 flex items-center gap-2 whitespace-nowrap">
                   Start Learning with FocusUp <ArrowRight className="w-5 h-5" />
                 </Link>
                 <button className="rounded-full border-2 border-ink/20 bg-white/50 px-8 py-4 text-base font-semibold text-ink">Watch Demo</button>
@@ -244,14 +244,14 @@ export const HeroParallax = () => {
             </p>
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-8">
               <Link
-                to="/dashboard"
+                to="/auth"
                 className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-teal to-blue-600 px-8 py-4 text-lg font-semibold text-white shadow-lg transition-all hover:scale-105 hover:shadow-xl"
               >
                 Get Started Free
                 <ArrowRight className="w-5 h-5" />
               </Link>
               <Link
-                to="/dashboard"
+                to="/auth"
                 className="inline-flex items-center gap-2 rounded-full border-2 border-teal/30 bg-white/70 px-8 py-4 text-lg font-semibold text-ink hover:bg-white transition-all"
               >
                 View Demo Dashboard

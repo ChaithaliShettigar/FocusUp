@@ -4,7 +4,7 @@ import { Link, NavLink, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useFocusStore } from '../store/useFocusStore'
 import { authAPI } from '../services/api'
-import { Menu, X, LogOut } from 'lucide-react'
+import { User, UserPlus, Settings, Menu, X, LogOut } from 'lucide-react'
 import { toast } from 'react-hot-toast'
 
 const links = [
@@ -13,8 +13,8 @@ const links = [
   { to: '/groups', labelKey: 'groups' },
   { to: '/search', labelKey: 'search', label: '🔍 Search' },
   { to: '/analytics', labelKey: 'analytics' },
-  { to: '/profile', labelKey: 'profile' },
-  { to: '/settings', labelKey: 'settings' },
+
+
 ]
 
 export const NavBar = () => {
@@ -22,7 +22,8 @@ export const NavBar = () => {
   const isAuthenticated = useFocusStore((s) => s.isAuthenticated)
   const setAuthenticated = useFocusStore((s) => s.setAuthenticated)
   const setUser = useFocusStore((s) => s.setUser)
-  const [open, setOpen] = useState(false)
+  const [mobileOpen, setMobileOpen] = useState(false)
+  const [profileOpen, setProfileOpen] = useState(false)
   const navigate = useNavigate()
 
   const handleLogout = async () => {
@@ -62,43 +63,73 @@ export const NavBar = () => {
               {t(item.labelKey)}
             </NavLink>
           ))}
-          {isAuthenticated ? (
-            <button
-              onClick={handleLogout}
-              className="rounded-full px-3 py-2 text-ink/80 hover:bg-clay/70 transition-all flex items-center gap-2"
-              title="Logout"
-            >
-              <LogOut className="h-4 w-4" />
-              Logout
-            </button>
-          ) : (
-            <NavLink
-              to="/auth"
-              className={({ isActive }) =>
-                `rounded-full px-3 py-2 transition-all ${
-                  isActive ? 'bg-ink text-sand shadow-soft' : 'text-ink/80 hover:bg-clay/70'
-                }`
-              }
-            >
-              {t('login')}
-            </NavLink>
-          )}
         </nav>
-        <div className="flex items-center gap-2">
-          <div className="hidden md:block w-56 mr-2">
-            <GlobalSearchBar />
-          </div>
-
-          <button
-            aria-label={open ? 'Close menu' : 'Open menu'}
-            onClick={() => setOpen((o) => !o)}
-            className="md:hidden rounded-full border border-ink/10 bg-white/80 p-2 text-ink shadow-sm hover:shadow"
-          >
-            {open ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
-          </button>
-        </div>
+           <div className="flex items-center gap-2">
+              <div className="hidden md:block w-56 mr-2">
+                <GlobalSearchBar />
+              </div>
+              {/* Profile Icon with Dropdown */}
+              <div className="relative">
+                <button
+                onClick={() => setProfileOpen((prev) => !prev)}
+                className="rounded-full p-2 bg-ink/10 hover:bg-ink/20 transition-colors"
+                aria-label="User menu"
+                >
+                  <User className="h-5 w-5 text-ink" />
+                </button>
+                {profileOpen && (
+                  <div className="absolute right-0 mt-2 w-40 bg-white shadow-lg rounded-md py-1 z-20">
+                    {isAuthenticated ? (
+                      <>
+                        <NavLink
+                          to="/settings"
+                          className="flex items-center px-4 py-2 text-sm text-ink hover:bg-clay/10"
+                          onClick={() => setProfileOpen(false)}
+                        >
+                          <Settings className="h-4 w-4 mr-2" />
+                          Settings
+                        </NavLink>
+                        <button
+                          onClick={() => { handleLogout(); setProfileOpen(false); }}
+                          className="flex items-center w-full px-4 py-2 text-sm text-ink hover:bg-clay/10"
+                        >
+                          <LogOut className="h-4 w-4 mr-2" />
+                          Logout
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <NavLink
+                          to="/auth"
+                          className="flex items-center px-4 py-2 text-sm text-ink hover:bg-clay/10"
+                          onClick={() => setProfileOpen(false)}
+                        >
+                          <User className="h-4 w-4 mr-2" />
+                          Sign In
+                        </NavLink>
+                        <NavLink
+                          to="/auth"
+                          className="flex items-center px-4 py-2 text-sm text-ink hover:bg-clay/10"
+                          onClick={() => setProfileOpen(false)}
+                        >
+                          <UserPlus className="h-4 w-4 mr-2" />
+                          Sign Up
+                        </NavLink>
+                      </>
+                    )}
+                  </div>
+                )}
+              </div>
+              <button
+                aria-label={mobileOpen ? 'Close menu' : 'Open menu'}
+                onClick={() => setMobileOpen((o) => !o)}
+                className="md:hidden rounded-full border border-ink/10 bg-white/80 p-2 text-ink shadow-sm hover:shadow"
+              >
+                {mobileOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+              </button>
+            </div>
       </div>
-      {open && (
+      {mobileOpen && (
         <div className="md:hidden border-t border-clay/60 bg-[rgba(247,242,233,0.95)] backdrop-blur-md">
           <div className="mx-auto max-w-6xl px-4 py-2">
             <div className="grid gap-2">
@@ -106,7 +137,7 @@ export const NavBar = () => {
                 <NavLink
                   key={item.to}
                   to={item.to}
-                  onClick={() => setOpen(false)}
+                  onClick={() => setMobileOpen(false)}
                   className={({ isActive }) =>
                     `block rounded-xl px-3 py-2 text-sm font-medium ${
                       isActive ? 'bg-ink text-sand shadow-soft' : 'text-ink hover:bg-clay/70'
@@ -120,17 +151,17 @@ export const NavBar = () => {
                 <button
                   onClick={() => {
                     handleLogout()
-                    setOpen(false)
+                    setMobileOpen(false)
                   }}
-                  className="block rounded-xl px-3 py-2 text-sm font-medium text-ink hover:bg-clay/70 text-left flex items-center gap-2"
+                  className="flex items-center w-full px-4 py-2 text-sm text-ink hover:bg-clay/10"
                 >
-                  <LogOut className="h-4 w-4" />
+                  <LogOut className="h-4 w-4 mr-2" />
                   Logout
                 </button>
               ) : (
                 <NavLink
                   to="/auth"
-                  onClick={() => setOpen(false)}
+                  onClick={() => setMobileOpen(false)}
                   className={({ isActive }) =>
                     `block rounded-xl px-3 py-2 text-sm font-medium ${
                       isActive ? 'bg-ink text-sand shadow-soft' : 'text-ink hover:bg-clay/70'
