@@ -4,6 +4,7 @@ import { DoodleBackground } from '../components/DoodleBackground'
 import { useFocusStore } from '../store/useFocusStore'
 import { toast } from 'react-hot-toast'
 import { authAPI } from '../services/api'
+import { Focus, Mail, Lock, User, ArrowRight, Loader2 } from 'lucide-react'
 
 export const Auth = () => {
   const [mode, setMode] = useState('login')
@@ -44,7 +45,6 @@ export const Auth = () => {
           navigate('/dashboard')
         }
       } else {
-        // Register mode
         const userData = {
           name: form.name,
           username: form.username,
@@ -73,150 +73,205 @@ export const Auth = () => {
     }
   }
 
+  const inputClass = "w-full rounded-xl border border-ink/10 bg-sand/40 px-4 py-3 text-sm text-ink placeholder:text-ink/30 focus:border-teal focus:outline-none focus:ring-2 focus:ring-teal/10 transition-all"
+
   return (
     <DoodleBackground>
-      <div className="mx-auto max-w-3xl rounded-3xl bg-white/85 p-8 shadow-soft">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <h2 className="text-3xl font-bold text-ink">{mode === 'login' ? 'Login' : 'Register'}</h2>
-            <p className="text-ink/70">
-              {mode === 'login' 
-                ? 'Sign in to your account' 
-                : 'Create a new account to get started'}
+      <div className="flex items-start justify-center pt-4 pb-12">
+        <div className="w-full max-w-xl">
+          {/* Brand header */}
+          <div className="text-center mb-7">
+            <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-gradient-to-br from-accent to-leaf shadow-lg mb-4">
+              <Focus className="w-7 h-7 text-white" />
+            </div>
+            <h1 className="text-2xl font-bold text-ink">
+              {mode === 'login' ? 'Welcome back' : 'Create account'}
+            </h1>
+            <p className="text-sm text-ink/50 mt-1">
+              {mode === 'login'
+                ? 'Sign in to continue your learning journey'
+                : 'Start your focused learning journey today'}
             </p>
           </div>
-          <div className="flex gap-2 rounded-full bg-clay/60 p-1">
-            <button
-              onClick={() => setMode('login')}
-              className={`rounded-full px-4 py-2 text-sm font-semibold ${mode === 'login' ? 'bg-ink text-sand' : 'text-ink'}`}
-            >
-              Login
-            </button>
-            <button
-              onClick={() => setMode('register')}
-              className={`rounded-full px-4 py-2 text-sm font-semibold ${mode === 'register' ? 'bg-ink text-sand' : 'text-ink'}`}
-            >
-              Register
-            </button>
+
+          {/* Card */}
+          <div className="rounded-3xl bg-white border border-ink/8 shadow-xl shadow-ink/8 p-8">
+            {/* Mode toggle */}
+            <div className="flex gap-1 rounded-xl bg-clay/50 p-1 mb-6">
+              <button
+                onClick={() => setMode('login')}
+                className={`flex-1 rounded-lg py-2.5 text-sm font-semibold transition-all ${
+                  mode === 'login' ? 'bg-ink text-sand shadow-md' : 'text-ink/60 hover:text-ink'
+                }`}
+              >
+                Login
+              </button>
+              <button
+                onClick={() => setMode('register')}
+                className={`flex-1 rounded-lg py-2.5 text-sm font-semibold transition-all ${
+                  mode === 'register' ? 'bg-ink text-sand shadow-md' : 'text-ink/60 hover:text-ink'
+                }`}
+              >
+                Register
+              </button>
+            </div>
+
+            <form onSubmit={submit} className="space-y-4">
+              {/* Register: Name */}
+              {mode === 'register' && (
+                <div>
+                  <label className="text-xs font-medium text-ink/60 mb-1 block">Full Name</label>
+                  <div className="relative">
+                    <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-ink/30" />
+                    <input
+                      value={form.name}
+                      onChange={(e) => setForm({ ...form, name: e.target.value })}
+                      className={`${inputClass} pl-9`}
+                      placeholder="John Doe"
+                      required
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* Register: Username + Student ID */}
+              {mode === 'register' && (
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-xs font-medium text-ink/60 mb-1 block">Username</label>
+                    <input
+                      value={form.username}
+                      onChange={(e) => setForm({ ...form, username: e.target.value.toLowerCase() })}
+                      className={inputClass}
+                      placeholder="johndoe"
+                      minLength={3}
+                      maxLength={20}
+                      pattern="[a-z0-9_\\-]+"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium text-ink/60 mb-1 block">Student ID</label>
+                    <input
+                      value={form.studentId}
+                      onChange={(e) => setForm({ ...form, studentId: e.target.value })}
+                      className={inputClass}
+                      placeholder="STU123456"
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* Email */}
+              <div>
+                <label className="text-xs font-medium text-ink/60 mb-1 block">Email</label>
+                <div className="relative">
+                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-ink/30" />
+                  <input
+                    type="email"
+                    value={form.email}
+                    onChange={(e) => setForm({ ...form, email: e.target.value })}
+                    className={`${inputClass} pl-9`}
+                    placeholder="you@example.com"
+                    autoComplete="email"
+                    required
+                  />
+                </div>
+              </div>
+
+              {/* Password */}
+              <div>
+                <label className="text-xs font-medium text-ink/60 mb-1 block">Password</label>
+                <div className="relative">
+                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-ink/30" />
+                  <input
+                    type="password"
+                    value={form.password}
+                    onChange={(e) => setForm({ ...form, password: e.target.value })}
+                    className={`${inputClass} pl-9`}
+                    placeholder={mode === 'register' ? '8+ chars, uppercase, number, symbol' : 'Enter your password'}
+                    autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
+                    required
+                    minLength={8}
+                  />
+                </div>
+              </div>
+
+              {/* Register: College + Department + Role */}
+              {mode === 'register' && (
+                <div className="grid grid-cols-3 gap-3">
+                  <div>
+                    <label className="text-xs font-medium text-ink/60 mb-1 block">College</label>
+                    <input
+                      value={form.college}
+                      onChange={(e) => setForm({ ...form, college: e.target.value })}
+                      className={inputClass}
+                      placeholder="Optional"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium text-ink/60 mb-1 block">Dept</label>
+                    <input
+                      value={form.department}
+                      onChange={(e) => setForm({ ...form, department: e.target.value })}
+                      className={inputClass}
+                      placeholder="Optional"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium text-ink/60 mb-1 block">Role</label>
+                    <select
+                      value={form.role}
+                      onChange={(e) => setForm({ ...form, role: e.target.value })}
+                      className={inputClass}
+                    >
+                      <option value="student">Student</option>
+                      <option value="faculty">Faculty</option>
+                    </select>
+                  </div>
+                </div>
+              )}
+
+              {/* Submit button */}
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-full mt-1 rounded-xl bg-gradient-to-r from-ink to-ink/85 py-3 text-sm font-semibold text-white shadow-lg shadow-ink/15 transition-all hover:shadow-xl hover:from-teal hover:to-blue-500 disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                {loading ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Please wait...
+                  </>
+                ) : (
+                  <>
+                    {mode === 'login' ? 'Sign In' : 'Create Account'}
+                    <ArrowRight className="w-4 h-4" />
+                  </>
+                )}
+              </button>
+            </form>
+
+            {/* Footer link */}
+            <p className="mt-5 text-center text-xs text-ink/45">
+              {mode === 'login' ? (
+                <>
+                  Don't have an account?{' '}
+                  <button onClick={() => setMode('register')} className="font-semibold text-teal hover:text-teal/80 transition-colors">
+                    Sign up
+                  </button>
+                </>
+              ) : (
+                <>
+                  Already have an account?{' '}
+                  <button onClick={() => setMode('login')} className="font-semibold text-teal hover:text-teal/80 transition-colors">
+                    Sign in
+                  </button>
+                </>
+              )}
+            </p>
           </div>
         </div>
-
-        <form onSubmit={submit} className="mt-6 grid gap-4 md:grid-cols-2">
-          {mode === 'register' && (
-            <>
-              <div className="md:col-span-2">
-                <label className="text-sm text-ink/70">Name *</label>
-                <input
-                  value={form.name}
-                  onChange={(e) => setForm({ ...form, name: e.target.value })}
-                  className="mt-2 w-full rounded-2xl border border-ink/10 px-3 py-2"
-                  required
-                />
-              </div>
-              <div>
-                <label className="text-sm text-ink/70">Username * (3-20 characters)</label>
-                <input
-                  value={form.username}
-                  onChange={(e) => setForm({ ...form, username: e.target.value.toLowerCase() })}
-                  className="mt-2 w-full rounded-2xl border border-ink/10 px-3 py-2"
-                  placeholder="e.g., john_doe or johndoe23"
-                  minLength={3}
-                  maxLength={20}
-                  pattern="[a-z0-9_\\-]+"
-                  title="Only lowercase letters, numbers, underscores, and hyphens allowed"
-                  required
-                />
-              </div>
-              <div>
-                <label className="text-sm text-ink/70">Student ID (Optional)</label>
-                <input
-                  value={form.studentId}
-                  onChange={(e) => setForm({ ...form, studentId: e.target.value })}
-                  className="mt-2 w-full rounded-2xl border border-ink/10 px-3 py-2"
-                  placeholder="e.g., STU123456"
-                />
-              </div>
-            </>
-          )}
-          <div>
-            <label className="text-sm text-ink/70">Email *</label>
-            <input
-              type="email"
-              value={form.email}
-              onChange={(e) => setForm({ ...form, email: e.target.value })}
-              className="mt-2 w-full rounded-2xl border border-ink/10 px-3 py-2"
-              autoComplete="email"
-              required
-            />
-          </div>
-          <div>
-            <label className="text-sm text-ink/70">Password *</label>
-            <input
-              type="password"
-              value={form.password}
-              onChange={(e) => setForm({ ...form, password: e.target.value })}
-              className="mt-2 w-full rounded-2xl border border-ink/10 px-3 py-2"
-              autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
-              required
-              minLength={8}
-            />
-            {mode === 'register' && (
-              <p className="mt-1 text-xs text-ink/50">
-                Must be 8+ characters with uppercase, number, and special character
-              </p>
-            )}
-          </div>
-          <div>
-            <label className="text-sm text-ink/70">Role</label>
-            <select
-              value={form.role}
-              onChange={(e) => setForm({ ...form, role: e.target.value })}
-              className="mt-2 w-full rounded-2xl border border-ink/10 px-3 py-2"
-            >
-              <option value="student">Student</option>
-              <option value="faculty">Faculty</option>
-            </select>
-          </div>
-          {mode === 'register' && (
-            <>
-              <div>
-                <label className="text-sm text-ink/70">College (Optional)</label>
-                <input
-                  value={form.college}
-                  onChange={(e) => setForm({ ...form, college: e.target.value })}
-                  className="mt-2 w-full rounded-2xl border border-ink/10 px-3 py-2"
-                />
-              </div>
-              <div>
-                <label className="text-sm text-ink/70">Department (Optional)</label>
-                <input
-                  value={form.department}
-                  onChange={(e) => setForm({ ...form, department: e.target.value })}
-                  className="mt-2 w-full rounded-2xl border border-ink/10 px-3 py-2"
-                />
-              </div>
-            </>
-          )}
-          <div className="md:col-span-2 flex items-center justify-between rounded-2xl bg-sand/80 px-4 py-3">
-            <div>
-              <p className="text-sm font-semibold text-ink">
-                {mode === 'login' ? 'Secure Login' : 'Create Account'}
-              </p>
-              <p className="text-xs text-ink/70">
-                {mode === 'login' 
-                  ? 'Your credentials are securely verified.' 
-                  : 'Password must include uppercase, number, and special character.'}
-              </p>
-            </div>
-            <button 
-              type="submit"
-              disabled={loading}
-              className="rounded-full bg-ink px-5 py-2 text-sm font-semibold text-sand shadow-soft disabled:opacity-50"
-            >
-              {loading ? 'Please wait...' : mode === 'login' ? 'Login' : 'Register'}
-            </button>
-          </div>
-        </form>
       </div>
     </DoodleBackground>
   )

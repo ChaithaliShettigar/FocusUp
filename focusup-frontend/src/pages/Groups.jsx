@@ -768,9 +768,9 @@ export const Groups = () => {
 
   return (
     <DoodleBackground>
-      <div className="max-w-6xl mx-auto space-y-6">
+      <div className="max-w-6xl mx-auto space-y-8">
         {/* Header */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-2">
           <div>
             <h2 className="text-4xl font-bold text-ink">My Groups</h2>
             <p className="mt-2 text-ink/70">Create groups or join existing ones to collaborate with others</p>
@@ -778,16 +778,16 @@ export const Groups = () => {
           <div className="flex gap-3 flex-shrink-0">
             <button
               onClick={() => setShowJoinModal(true)}
-              className="rounded-2xl bg-gradient-to-r from-blue-500 to-blue-700 px-4 md:px-6 py-3 font-semibold text-white shadow-md hover:shadow-lg transition-all flex items-center"
+              className="rounded-2xl bg-gradient-to-r from-blue-500 to-blue-700 px-5 py-3 font-semibold text-white shadow-md hover:shadow-lg transition-all flex items-center"
             >
-              <Plus className="w-5 h-5 mr-1 md:mr-2" />
+              <Plus className="w-5 h-5 mr-2" />
               <span>Join Group</span>
             </button>
             <button
               onClick={() => setShowCreateModal(true)}
-              className="rounded-2xl bg-gradient-to-r from-teal-400 to-teal-600 px-4 md:px-6 py-3 font-semibold text-white shadow-md hover:shadow-lg transition-all flex items-center"
+              className="rounded-2xl bg-gradient-to-r from-teal-400 to-teal-600 px-5 py-3 font-semibold text-white shadow-md hover:shadow-lg transition-all flex items-center"
             >
-              <Plus className="w-5 h-5 mr-1 md:mr-2" />
+              <Plus className="w-5 h-5 mr-2" />
               <span>Create Group</span>
             </button>
           </div>
@@ -795,21 +795,21 @@ export const Groups = () => {
 
         {/* Online Users Indicator */}
         {onlineUsers.length > 0 && (
-          <div className="bg-white/80 rounded-3xl p-4 shadow-soft">
+          <div className="bg-white/80 rounded-3xl p-5 shadow-soft">
             <div className="flex items-center gap-2 mb-3">
               <Wifi className="w-5 h-5 text-green-500" />
               <h3 className="font-semibold text-ink">Online Users ({onlineUsers.length})</h3>
             </div>
             <div className="flex flex-wrap gap-2">
               {onlineUsers.slice(0, 10).map((user) => (
-                <div key={user.userId} className="flex items-center gap-2 px-3 py-1 bg-green-50 rounded-full text-sm">
+                <div key={user.userId} className="flex items-center gap-2 px-3 py-1.5 bg-green-50 rounded-full text-sm">
                   <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
                   <span className="font-medium text-green-700">{user.username}</span>
                   <span className="text-teal-600 font-bold">{user.focusScore}</span>
                 </div>
               ))}
               {onlineUsers.length > 10 && (
-                <span className="px-3 py-1 bg-gray-100 rounded-full text-sm text-gray-600">
+                <span className="px-3 py-1.5 bg-gray-100 rounded-full text-sm text-gray-600">
                   +{onlineUsers.length - 10} more
                 </span>
               )}
@@ -822,7 +822,7 @@ export const Groups = () => {
           {localGroups.map((group) => (
             <div
               key={group._id}
-              className="rounded-3xl bg-white/80 p-6 shadow-soft hover:shadow-medium transition-all"
+              className="group rounded-3xl bg-white/80 p-6 shadow-soft hover:shadow-xl transition-all duration-300"
             >
               <div className="flex items-start justify-between mb-4">
                 <h3 className="text-xl font-bold text-ink">{group.name}</h3>
@@ -838,34 +838,34 @@ export const Groups = () => {
                 </button>
               </div>
 
-              <p className="text-sm text-ink/70 mb-4">{group.description || 'No description'}</p>
+              <p className="text-sm text-ink/70 mb-5">{group.description || 'No description'}</p>
 
-              <div className="grid grid-cols-2 gap-4 mb-4">
+              <div className="grid grid-cols-2 gap-4 mb-5">
                 <div>
-                  <p className="text-sm text-ink/60 uppercase tracking-wider">Group Code</p>
+                  <p className="text-xs text-ink/60 uppercase tracking-wider">Group Code</p>
                   <p className="text-lg font-mono font-bold text-teal">{group.code}</p>
                 </div>
 
                 <div>
-                  <p className="text-sm text-ink/60 uppercase tracking-wider">Members</p>
+                  <p className="text-xs text-ink/60 uppercase tracking-wider">Members</p>
                   <p className="text-2xl font-bold text-ink">{group.members?.length || 0}</p>
                 </div>
               </div>
 
               {group.members && group.members.length > 0 && (
-                <div className="mb-4">
-                  <p className="text-sm text-ink/60 uppercase tracking-wider mb-2">Recent Members</p>
+                <div className="mb-5">
+                  <p className="text-xs text-ink/60 uppercase tracking-wider mb-2">Recent Members</p>
                   {group.members.slice(0, 3).map((member) => {
                     const userData = member.userId || member
                     const isOnline = isUserOnline(userData._id)
                     return (
-                      <div key={member._id || userData._id} className="flex items-center gap-2 mb-1">
+                      <div key={member._id || userData._id} className="flex items-center gap-2 mb-1.5">
                         <div className="relative">
-                          <div className="w-6 h-6 rounded-full bg-gradient-to-br from-teal to-blue flex items-center justify-center text-white text-xs font-bold">
+                          <div className="w-7 h-7 rounded-full bg-gradient-to-br from-teal to-blue flex items-center justify-center text-white text-xs font-bold">
                             {userData.name?.charAt(0).toUpperCase() || 'U'}
                           </div>
                           {isOnline && (
-                            <div className="absolute -bottom-1 -right-1 w-2 h-2 bg-green-400 border border-white rounded-full"></div>
+                            <div className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-green-400 border-2 border-white rounded-full"></div>
                           )}
                         </div>
                         <span className="text-sm text-ink font-medium">{userData.name || userData.username}</span>
@@ -874,18 +874,18 @@ export const Groups = () => {
                     )
                   })}
                   {group.members.length > 3 && (
-                    <p className="text-sm text-ink/60">+{group.members.length - 3} more</p>
+                    <p className="text-xs text-ink/60 mt-1">+{group.members.length - 3} more</p>
                   )}
                 </div>
               )}
 
               {/* Resources Section */}
-              <div className="border-t border-ink/10 pt-4 mb-4">
+              <div className="border-t border-ink/10 pt-4 mb-5">
                 <div className="flex items-center justify-between mb-3">
-                  <p className="text-sm text-ink/60 uppercase tracking-wider">Study Resources</p>
+                  <p className="text-xs text-ink/60 uppercase tracking-wider">Study Resources</p>
                   <button
                     onClick={() => openAddResourceModal(group)}
-                    className="flex items-center gap-1 text-xs bg-teal-500 text-white px-2 py-1 rounded-full shadow-sm hover:bg-teal-600 transition-colors"
+                    className="flex items-center gap-1 text-xs bg-teal-500 text-white px-2.5 py-1 rounded-full shadow-sm hover:bg-teal-600 transition-colors"
                   >
                     <Plus className="w-3 h-3" />
                     Add
@@ -895,14 +895,14 @@ export const Groups = () => {
                 {group.resources && group.resources.length > 0 ? (
                   <div className="space-y-2">
                     {group.resources.slice(0, 3).map((resource) => (
-                      <div key={resource.id} className="flex items-center justify-between bg-ink/5 rounded-lg p-2">
-                        <div className="flex items-center gap-2">
+                      <div key={resource.id} className="flex items-center justify-between bg-ink/5 rounded-xl p-2.5">
+                        <div className="flex items-center gap-2 min-w-0 flex-1">
                           {getResourceIcon(resource.type)}
-                          <span className="text-sm text-ink font-medium">{resource.title}</span>
+                          <span className="text-sm text-ink font-medium truncate">{resource.title}</span>
                         </div>
                         <button
                           onClick={() => handleStartStudySession(group, resource)}
-                          className="flex items-center gap-1 text-xs bg-blue-500 text-white px-2 py-1 rounded-full hover:bg-blue-600 transition-colors"
+                          className="flex items-center gap-1 text-xs bg-blue-500 text-white px-2.5 py-1 rounded-full hover:bg-blue-600 transition-colors shrink-0 ml-2"
                         >
                           <Play className="w-3 h-3" />
                           Study
@@ -922,7 +922,7 @@ export const Groups = () => {
               <div className="flex gap-2">
                 <button
                   onClick={() => openGroupDetails(group)}
-                  className="flex-1 rounded-2xl bg-ink/10 px-4 py-2 text-sm font-semibold text-ink hover:bg-ink/20 transition-colors"
+                  className="flex-1 rounded-2xl bg-ink/10 px-4 py-2.5 text-sm font-semibold text-ink hover:bg-ink/20 transition-colors"
                 >
                   View Details
                 </button>
@@ -931,10 +931,10 @@ export const Groups = () => {
           ))}
 
           {localGroups.length === 0 && (
-            <div className="col-span-full text-center py-12">
+            <div className="col-span-full text-center py-16">
               <Users className="w-16 h-16 text-ink/30 mx-auto mb-4" />
               <h3 className="text-xl font-semibold text-ink mb-2">No groups yet</h3>
-              <p className="text-ink/70 mb-4">Create your first group or join an existing one to get started!</p>
+              <p className="text-ink/70 mb-6">Create your first group or join an existing one to get started!</p>
               <button
                 onClick={() => setShowCreateModal(true)}
                 className="rounded-2xl bg-gradient-to-r from-teal-400 to-teal-600 px-6 py-3 font-semibold text-white shadow-md hover:shadow-lg transition-all"
@@ -1033,7 +1033,7 @@ export const Groups = () => {
         {/* Group Details Modal */}
         {showGroupDetails && selectedGroupForDetails && (
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-            <div className="bg-white rounded-3xl p-8 max-w-2xl w-full mx-4 max-h-[80vh] overflow-y-auto">
+            <div className="bg-white rounded-3xl p-8 max-w-2xl w-full mx-4 max-h-[85vh] overflow-y-auto">
               <div className="flex items-start justify-between mb-6">
                 <h3 className="text-2xl font-bold text-ink">{selectedGroupForDetails.name}</h3>
                 <button
@@ -1044,7 +1044,7 @@ export const Groups = () => {
                 </button>
               </div>
 
-              <div className="space-y-6">
+              <div className="space-y-8">
                 <div>
                   <p className="text-sm text-ink/60 uppercase tracking-wider mb-2">Group Code</p>
                   <div className="flex items-center gap-3">
@@ -1085,7 +1085,7 @@ export const Groups = () => {
                                   {isOnline && <Wifi className="w-4 h-4 text-green-500" />}
                                 </p>
                                 <p className="text-sm text-ink/60">@{userData.username || userData.email}</p>
-                                {isOnline && <p className="text-xs text-green-600 font-medium">● Online</p>}
+                                {isOnline && <p className="text-xs text-green-600 font-medium">Online</p>}
                               </div>
                             </div>
                             <div className="text-right">
@@ -1102,10 +1102,10 @@ export const Groups = () => {
                 </div>
 
                 {/* Tabs */}
-                <div className="flex border-b border-ink/10 mb-4">
+                <div className="flex border-b border-ink/10 mb-6">
                   <button
                     onClick={() => setActiveTab('materials')}
-                    className={`px-4 py-2 font-semibold text-sm transition-colors ${
+                    className={`px-5 py-2.5 font-semibold text-sm transition-colors ${
                       activeTab === 'materials'
                         ? 'text-teal border-b-2 border-teal'
                         : 'text-ink/50 hover:text-ink/80'
@@ -1115,7 +1115,7 @@ export const Groups = () => {
                   </button>
                   <button
                     onClick={() => setActiveTab('chat')}
-                    className={`px-4 py-2 font-semibold text-sm transition-colors ${
+                    className={`px-5 py-2.5 font-semibold text-sm transition-colors ${
                       activeTab === 'chat'
                         ? 'text-teal border-b-2 border-teal'
                         : 'text-ink/50 hover:text-ink/80'
@@ -1128,7 +1128,7 @@ export const Groups = () => {
                 {/* Learning Library Section */}
                 {activeTab === 'materials' && (
                 <div>
-                  <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center justify-between mb-5">
                     <div>
                       <h4 className="text-lg font-semibold text-ink mb-1">Group Learning Library</h4>
                       <p className="text-sm text-ink/70">Upload PDFs or add YouTube links. Focus sessions always need a target timer.</p>
@@ -1136,31 +1136,31 @@ export const Groups = () => {
                   </div>
 
                   {/* Learning Interface - Same as Learn Section */}
-                  <div className="grid gap-4 md:grid-cols-3 mb-6">
-                    <div className="rounded-3xl bg-white/85 p-5 shadow-soft">
+                  <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-3 mb-6">
+                    <div className="rounded-3xl bg-white/85 p-6 shadow-soft">
                       <h5 className="text-lg font-semibold text-ink">Upload PDF</h5>
-                      <p className="text-sm text-ink/70">Files stay local to this browser session.</p>
+                      <p className="text-sm text-ink/70 mt-1">Files stay local to this browser session.</p>
                       <input
                         type="file"
                         accept="application/pdf"
                         onChange={(e) => handlePdfUpload(e, selectedGroupForDetails)}
-                        className="mt-3 w-full rounded-2xl border border-ink/10 bg-white px-3 py-2 text-sm"
+                        className="mt-4 w-full rounded-2xl border border-ink/10 bg-white px-3 py-2.5 text-sm"
                       />
                     </div>
                     
-                    <div className="rounded-3xl bg-white/85 p-5 shadow-soft">
+                    <div className="rounded-3xl bg-white/85 p-6 shadow-soft">
                       <h5 className="text-lg font-semibold text-ink">Add YouTube link</h5>
-                      <p className="text-sm text-ink/70">Videos open inside FocusUp so focus tracking works.</p>
-                      <div className="mt-3 flex flex-col gap-2">
+                      <p className="text-sm text-ink/70 mt-1">Videos open inside FocusUp so focus tracking works.</p>
+                      <div className="mt-4 flex flex-col gap-3">
                         <input
                           value={youtubeLink}
                           onChange={(e) => setYoutubeLink(e.target.value)}
                           placeholder="https://youtube.com/watch?v=..."
-                          className="w-full rounded-2xl border border-ink/10 bg-white px-3 py-2 text-sm"
+                          className="w-full rounded-2xl border border-ink/10 bg-white px-3 py-2.5 text-sm"
                         />
                         <button 
                           onClick={() => handleYoutubeAdd(selectedGroupForDetails)}
-                          className="self-start rounded-full px-4 py-2 text-sm font-semibold text-sand shadow-soft bg-ink hover:bg-ink/90 transition-colors flex items-center gap-2"
+                          className="self-start rounded-full px-5 py-2 text-sm font-semibold text-sand shadow-soft bg-ink hover:bg-ink/90 transition-colors flex items-center gap-2"
                           disabled={loading || !youtubeLink.trim()}
                         >
                           <Video className="w-4 h-4" />
@@ -1169,25 +1169,25 @@ export const Groups = () => {
                       </div>
                     </div>
                     
-                    <div className="rounded-3xl bg-white/85 p-5 shadow-soft">
+                    <div className="rounded-3xl bg-white/85 p-6 shadow-soft">
                       <h5 className="text-lg font-semibold text-ink">Coding study</h5>
-                      <p className="text-sm text-ink/70">Track focused coding with notes or a snippet.</p>
-                      <div className="mt-3 flex flex-col gap-2">
+                      <p className="text-sm text-ink/70 mt-1">Track focused coding with notes or a snippet.</p>
+                      <div className="mt-4 flex flex-col gap-3">
                         <input
                           value={codeTitle}
                           onChange={(e) => setCodeTitle(e.target.value)}
                           placeholder="Topic or challenge"
-                          className="w-full rounded-2xl border border-ink/10 bg-white px-3 py-2 text-sm"
+                          className="w-full rounded-2xl border border-ink/10 bg-white px-3 py-2.5 text-sm"
                         />
                         <textarea
                           value={codeNotes}
                           onChange={(e) => setCodeNotes(e.target.value)}
                           placeholder="Notes, snippet, or TODOs"
-                          className="h-24 w-full rounded-2xl border border-ink/10 bg-white px-3 py-2 text-sm font-mono"
+                          className="h-24 w-full rounded-2xl border border-ink/10 bg-white px-3 py-2.5 text-sm font-mono"
                         />
                         <button 
                           onClick={() => handleCodeAdd(selectedGroupForDetails)}
-                          className="self-start rounded-full px-4 py-2 text-sm font-semibold text-sand shadow-soft bg-ink hover:bg-ink/90 transition-colors flex items-center gap-2"
+                          className="self-start rounded-full px-5 py-2 text-sm font-semibold text-sand shadow-soft bg-ink hover:bg-ink/90 transition-colors flex items-center gap-2"
                           disabled={loading || !codeTitle.trim()}
                         >
                           <Code className="w-4 h-4" />
@@ -1198,8 +1198,8 @@ export const Groups = () => {
                   </div>
 
                   {/* Your Materials Section - Same as Learn Section */}
-                  <div className="rounded-3xl bg-white/80 p-5 shadow-soft">
-                    <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div className="rounded-3xl bg-white/80 p-6 shadow-soft">
+                    <div className="flex flex-wrap items-center justify-between gap-4">
                       <div>
                         <h5 className="text-lg font-semibold text-ink">Your group materials</h5>
                         <p className="text-sm text-ink/70">Everything starts empty. Add items above to begin.</p>
@@ -1217,20 +1217,20 @@ export const Groups = () => {
                     </div>
                     
                     {selectedGroupForDetails.resources && selectedGroupForDetails.resources.length > 0 ? (
-                      <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                      <div className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                         {selectedGroupForDetails.resources.map((resource) => (
                           <div
                             id={`group-resource-${resource.id || resource._id}`}
                             key={resource.id || resource._id}
-                            className={`rounded-2xl border bg-white p-4 shadow-sm transition-all hover:shadow-md ${
+                            className={`group rounded-2xl border bg-white p-5 shadow-sm hover:shadow-md transition-all ${
                               locatedResourceId === String(resource.id || resource._id)
                                 ? 'border-teal-500 ring-2 ring-teal-200'
-                                : 'border-ink/10'
+                                : 'border-ink/10 hover:border-ink/20'
                             }`}
                           >
                             <div className="flex items-start justify-between gap-3 mb-3">
-                              <div className="flex items-start gap-3 flex-1">
-                                <div className="p-2 rounded-full bg-ink/10">
+                              <div className="flex items-start gap-3 flex-1 min-w-0">
+                                <div className="p-2 rounded-full bg-ink/10 shrink-0">
                                   {resource.type === 'pdf' && <FileText className="w-4 h-4 text-ink" />}
                                   {resource.type === 'youtube' && <Video className="w-4 h-4 text-red-600" />}
                                   {resource.type === 'code' && <Code className="w-4 h-4 text-blue-600" />}
@@ -1241,9 +1241,6 @@ export const Groups = () => {
                                   </p>
                                   <div className="flex items-center gap-2 mt-1">
                                     <span className="text-xs text-ink/60 capitalize">{resource.type}</span>
-                                    <span className="rounded-full bg-teal/10 text-teal px-2 py-0.5 text-xs font-medium">
-                                      Focus Ready
-                                    </span>
                                     {locatedResourceId === String(resource.id || resource._id) && (
                                       <span className="rounded-full bg-teal/20 text-teal-800 px-2 py-0.5 text-xs font-semibold">
                                         Located from search
@@ -1254,7 +1251,7 @@ export const Groups = () => {
                               </div>
                               <button
                                 onClick={() => deleteGroupResource(selectedGroupForDetails, resource)}
-                                className="rounded-full border border-red-200 bg-red-50 p-2 text-red-700 hover:bg-red-100 transition-colors"
+                                className="rounded-full border border-red-200 bg-red-50 p-2 text-red-700 hover:bg-red-100 transition-colors shrink-0"
                                 disabled={loading}
                               >
                                 <Trash2 className="h-4 w-4" />
@@ -1262,7 +1259,7 @@ export const Groups = () => {
                             </div>
                             <button
                               onClick={() => startGroupFocus(selectedGroupForDetails, resource)}
-                              className="w-full rounded-full px-4 py-2 text-sm font-semibold text-sand shadow-soft bg-ink hover:bg-ink/90 transition-colors flex items-center justify-center gap-2"
+                              className="w-full rounded-full px-4 py-2.5 text-sm font-semibold text-sand shadow-soft bg-ink hover:bg-ink/90 transition-all flex items-center justify-center gap-2"
                               disabled={!targetMinutes || targetMinutes < 5}
                             >
                               <Play className="w-4 h-4" />
@@ -1283,7 +1280,7 @@ export const Groups = () => {
                 {/* Chat Section */}
                 {activeTab === 'chat' && (
                 <div className="flex flex-col h-[500px] bg-ink/5 rounded-2xl border border-ink/10 overflow-hidden">
-                  <div className="flex-1 overflow-y-auto p-4 space-y-4">
+                  <div className="flex-1 overflow-y-auto p-5 space-y-4">
                     {chatMessages.length === 0 ? (
                       <div className="h-full flex items-center justify-center text-ink/50 text-sm italic">
                         No messages yet. Start the conversation!
@@ -1294,7 +1291,7 @@ export const Groups = () => {
                         return (
                           <div key={idx} className={`flex flex-col max-w-[80%] ${isMine ? 'self-end items-end ml-auto' : 'self-start items-start'}`}>
                             <span className="text-xs text-ink/50 mb-1">{msg.senderName}</span>
-                            <div className={`px-4 py-2 rounded-2xl ${isMine ? 'bg-teal-500 text-white rounded-br-sm' : 'bg-white border border-ink/10 text-ink rounded-bl-sm'}`}>
+                            <div className={`px-4 py-2.5 rounded-2xl ${isMine ? 'bg-teal-500 text-white rounded-br-sm' : 'bg-white border border-ink/10 text-ink rounded-bl-sm'}`}>
                               <p className="text-sm break-words whitespace-pre-wrap">{msg.text}</p>
                             </div>
                             <span className="text-[10px] text-ink/40 mt-1">
@@ -1306,18 +1303,18 @@ export const Groups = () => {
                     )}
                   </div>
                   
-                  <form onSubmit={handleSendMessage} className="p-3 bg-white border-t border-ink/10 flex items-center gap-2">
+                  <form onSubmit={handleSendMessage} className="p-4 bg-white border-t border-ink/10 flex items-center gap-3">
                     <input
                       type="text"
                       value={newMessage}
                       onChange={(e) => setNewMessage(e.target.value)}
                       placeholder="Type a message..."
-                      className="flex-1 bg-ink/5 border border-ink/10 rounded-full px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal/50"
+                      className="flex-1 bg-ink/5 border border-ink/10 rounded-full px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal/50"
                     />
                     <button
                       type="submit"
                       disabled={!newMessage.trim()}
-                      className="p-2 rounded-full bg-teal text-white hover:bg-teal-600 disabled:opacity-50 transition-colors"
+                      className="p-2.5 rounded-full bg-teal text-white hover:bg-teal-600 disabled:opacity-50 transition-colors"
                     >
                       <Send className="w-5 h-5" />
                     </button>
@@ -1423,7 +1420,7 @@ export const Groups = () => {
 
         {/* Study Session Interface - Same as Learn Section */}
         {selectedResource && (studyMode || previewMode) && (
-          <div className="rounded-3xl bg-white/90 p-5 shadow-soft mb-6">
+          <div className="rounded-3xl bg-white/90 p-6 shadow-soft mb-6">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-ink/60">
@@ -1434,20 +1431,20 @@ export const Groups = () => {
               {studyMode ? (
                 <button
                   onClick={stopGroupFocus}
-                  className="rounded-full border border-ink/10 px-4 py-2 text-sm font-semibold text-ink"
+                  className="rounded-full border border-ink/10 px-5 py-2.5 text-sm font-semibold text-ink hover:bg-clay/50 transition-colors"
                 >
                   End session
                 </button>
               ) : (
                 <button
                   onClick={() => startGroupFocus(activeStudyGroup, selectedResource)}
-                  className="rounded-full bg-ink px-4 py-2 text-sm font-semibold text-sand shadow-soft"
+                  className="rounded-full bg-ink px-5 py-2.5 text-sm font-semibold text-sand shadow-soft hover:scale-[1.02] transition-all"
                 >
                   Start focus study
                 </button>
               )}
             </div>
-            <div className="mt-4 overflow-hidden rounded-2xl border border-ink/10 bg-sand shadow-inner">
+            <div className="mt-5 overflow-hidden rounded-2xl border border-ink/10 bg-sand shadow-inner">
               {selectedResource.type === 'youtube' ? (
                 <iframe
                   title="YouTube"

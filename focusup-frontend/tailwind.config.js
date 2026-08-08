@@ -7,7 +7,7 @@ export default {
         sand: '#f7f2e9',
         clay: '#e7ddcb',
         ink: '#1f2933',
-        accent: '#f1b24a',
+        accent: '#d4993a',
         mint: '#8bd3dd',
         leaf: '#7dcfb6',
       },

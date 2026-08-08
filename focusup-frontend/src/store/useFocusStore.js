@@ -105,7 +105,15 @@ export const useFocusStore = create((set, get) => ({
     } else {
       // Disconnect socket when logged out
       socketService.disconnect()
-      set({ onlineUsers: [], realtimeGroups: [] })
+      set({
+        onlineUsers: [],
+        realtimeGroups: [],
+        contents: [],
+        groups: [],
+        sessions: [],
+        currentSessionId: null,
+        activeContentId: null,
+      })
     }
   },
   togglePublicFocus: () => set({ user: { ...get().user, publicFocus: !get().user.publicFocus } }),
