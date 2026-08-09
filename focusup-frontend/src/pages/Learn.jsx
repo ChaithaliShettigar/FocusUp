@@ -118,19 +118,64 @@ const PdfViewer = ({ contentId, title }) => {
   )
 }
 
+// Inline target minutes input with local state to allow free typing
+const TargetMinutesInput = ({ contentId, value, onUpdate }) => {
+  const [localValue, setLocalValue] = useState(String(value || 25))
+  const [isFocused, setIsFocused] = useState(false)
+
+  useEffect(() => {
+    if (!isFocused) {
+      setLocalValue(String(value || 25))
+    }
+  }, [value, isFocused])
+
+  const handleBlur = () => {
+    setIsFocused(false)
+    const num = parseInt(localValue, 10)
+    const clamped = isNaN(num) || num < 1 ? 1 : num
+    setLocalValue(String(clamped))
+    if (clamped !== value) {
+      onUpdate(contentId, clamped)
+    }
+  }
+
+  const handleKeyDown = (e) => {
+    if (e.key === 'Enter') e.target.blur()
+  }
+
+  return (
+    <div className="flex items-center gap-1.5">
+      <label className="text-xs text-ink/60">Target</label>
+      <input
+        type="number"
+        min={1}
+        value={localValue}
+        onChange={(e) => setLocalValue(e.target.value)}
+        onFocus={() => setIsFocused(true)}
+        onBlur={handleBlur}
+        onKeyDown={handleKeyDown}
+        className="w-16 rounded-lg border border-ink/15 bg-white px-2 py-1 text-xs text-center focus:border-teal focus:outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-auto [&::-webkit-outer-spin-button]:appearance-auto"
+      />
+      <span className="text-xs text-ink/60">min</span>
+    </div>
+  )
+}
+
 export const Learn = () => {
   const location = useLocation()
   const addContent = useFocusStore((s) => s.addContent)
   const contents = useFocusStore((s) => s.contents)
   const removeContent = useFocusStore((s) => s.removeContent)
+  const updateContent = useFocusStore((s) => s.updateContent)
   const startSession = useFocusStore((s) => s.startSession)
   const endSession = useFocusStore((s) => s.endSession)
   const setCurrentSession = useFocusStore((s) => s.setCurrentSession)
   const isAuthenticated = useFocusStore((s) => s.isAuthenticated)
   const activeContentId = useFocusStore((s) => s.activeContentId)
   const currentSessionId = useFocusStore((s) => s.currentSessionId)
+  const sessions = useFocusStore((s) => s.sessions)
+  const activeSession = sessions.find((s) => s.id === currentSessionId)
 
-  const [targetMinutes, setTargetMinutes] = useState(25)
   const [selectedContent, setSelectedContent] = useState(null)
   const [previewOnlyOpen, setPreviewOnlyOpen] = useState(false)
   const [locatedContentId, setLocatedContentId] = useState(null)
@@ -138,6 +183,11 @@ export const Learn = () => {
   const [codeNotes, setCodeNotes] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const setContents = useFocusStore((s) => s.setContents)
+
+  const handleUpdateTargetMinutes = (contentId, newMinutes) => {
+    updateContent(contentId, { targetMinutes: newMinutes })
+    contentAPI.updateContent(contentId, { targetMinutes: newMinutes }).catch(() => {})
+  }
 
   // Restore active session after content is loaded
   const hasRestoredSession = React.useRef(false)
@@ -202,6 +252,7 @@ export const Learn = () => {
               type: contentType,
               url: item.url || '',
               notes: item.description || '',
+              targetMinutes: item.targetMinutes || 25,
             }
           })
           console.log('Mapped content:', mappedContent)
@@ -244,7 +295,7 @@ export const Learn = () => {
         setPreviewOnlyOpen(previewOnly)
 
         if (!previewOnly) {
-          const id = startSession({ contentId: contentToOpen.id, contentType: contentToOpen.type, targetMinutes })
+          const id = startSession({ contentId: contentToOpen.id, contentType: contentToOpen.type, targetMinutes: contentToOpen.targetMinutes || 25 })
           setCurrentSession(id)
           toast.success(`Opening "${contentToOpen.title}"! Timer started.`)
         } else {
@@ -255,7 +306,7 @@ export const Learn = () => {
         window.history.replaceState({}, document.title)
       }
     }
-  }, [location.state, contents, isAuthenticated, startSession, setCurrentSession, targetMinutes])
+  }, [location.state, contents, isAuthenticated, startSession, setCurrentSession])
 
   // Handle opening content by query params (from GlobalSearchBar)
   useEffect(() => {
@@ -294,6 +345,7 @@ export const Learn = () => {
               type: contentType,
               url: item.url || '',
               notes: item.description || '',
+              targetMinutes: item.targetMinutes || 25,
             }
 
             // Add to local list so it shows up in UI
@@ -345,8 +397,9 @@ export const Learn = () => {
       const response = await contentAPI.createContent({
         title: file.name,
         type: 'pdf',
-        url: '', // We don't store the file data in MongoDB
-        description: 'PDF document stored locally'
+        url: '',
+        description: 'PDF document stored locally',
+        targetMinutes: 25,
       })
       
       if (response.success) {
@@ -359,7 +412,8 @@ export const Learn = () => {
           id: contentId,
           title: file.name, 
           type: 'pdf', 
-          url: '' // URL not needed, we use contentId to fetch from IndexedDB
+          url: '',
+          targetMinutes: 25,
         })
         toast.success('PDF added and saved!')
       }
@@ -406,15 +460,17 @@ export const Learn = () => {
       
       const response = await contentAPI.createContent({
         title: title,
-        type: 'youtube', // Use 'youtube' type directly
+        type: 'youtube',
         url: link,
+        targetMinutes: 25,
       })
       if (response.success) {
         addContent({ 
           id: response.content._id,
           title: title, 
           type: 'youtube', 
-          url: link 
+          url: link,
+          targetMinutes: 25,
         })
         e.target.reset()
         toast.success('YouTube link saved!')
@@ -441,13 +497,15 @@ export const Learn = () => {
         title: codeTitle,
         type: 'note',
         description: codeNotes,
+        targetMinutes: 25,
       })
       if (response.success) {
         addContent({ 
           id: response.content._id,
           title: codeTitle, 
           type: 'code', 
-          notes: codeNotes 
+          notes: codeNotes,
+          targetMinutes: 25,
         })
         setCodeTitle('')
         setCodeNotes('')
@@ -466,11 +524,12 @@ export const Learn = () => {
       toast.error('Sign up or login to start a focus session.')
       return
     }
-    if (!targetMinutes || targetMinutes <= 0) {
+    const materialTarget = content.targetMinutes || 25
+    if (!materialTarget || materialTarget <= 0) {
       toast.error('Set a target time to start.')
       return
     }
-    const id = startSession({ contentId: content.id, contentType: content.type, targetMinutes })
+    const id = startSession({ contentId: content.id, contentType: content.type, targetMinutes: materialTarget })
     setCurrentSession(id)
     setSelectedContent(content)
     setPreviewOnlyOpen(false)
@@ -643,16 +702,6 @@ export const Learn = () => {
               <h3 className="text-xl font-bold text-ink">Your materials</h3>
               <p className="text-sm font-medium text-ink/70 mt-0.5">Everything starts empty. Add items above to begin.</p>
             </div>
-            <div className="flex items-center gap-3">
-              <label className="text-sm text-ink/70">Target (minutes)</label>
-              <input
-                type="number"
-                min={5}
-                value={targetMinutes}
-                onChange={(e) => setTargetMinutes(Number(e.target.value))}
-                className="w-24 rounded-2xl border border-ink/10 px-3 py-2 text-sm"
-              />
-            </div>
           </div>
           {contents.length === 0 ? (
             <div className="mt-4 rounded-2xl bg-clay/60 p-4 text-sm text-ink/70">
@@ -689,9 +738,16 @@ export const Learn = () => {
                       </button>
                     </div>
                   </div>
+                  <div className="mt-3">
+                    <TargetMinutesInput
+                      contentId={c.id}
+                      value={c.targetMinutes || 25}
+                      onUpdate={handleUpdateTargetMinutes}
+                    />
+                  </div>
                   <button
                     onClick={() => startFocus(c)}
-                    className={`mt-4 w-full rounded-full px-4 py-2.5 text-sm font-semibold text-sand shadow-soft transition-all ${!isAuthenticated ? 'bg-ink/50 cursor-not-allowed' : 'bg-ink hover:scale-[1.02]'}`}
+                    className={`mt-3 w-full rounded-full px-4 py-2.5 text-sm font-semibold text-sand shadow-soft transition-all ${!isAuthenticated ? 'bg-ink/50 cursor-not-allowed' : 'bg-ink hover:scale-[1.02]'}`}
                     disabled={!isAuthenticated}
                   >
                     Open & start focus
@@ -710,6 +766,16 @@ export const Learn = () => {
                   {isSelectedInActiveFocusSession ? 'Learning now' : 'Preview mode'}
                 </p>
                 <h3 className="text-xl font-semibold text-ink">{selectedContent.title}</h3>
+                {isSelectedInActiveFocusSession && activeSession && (
+                  <p className="mt-1 text-sm font-medium text-accent">
+                    {(() => {
+                      const remaining = Math.max(0, (activeSession.targetMinutes || 25) * 60 - (activeSession.elapsedSeconds || 0))
+                      const mins = Math.floor(remaining / 60)
+                      const secs = remaining % 60
+                      return `Remaining: ${mins}:${secs.toString().padStart(2, '0')}`
+                    })()}
+                  </p>
+                )}
               </div>
               {isSelectedInActiveFocusSession ? (
                 <button

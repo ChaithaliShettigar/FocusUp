@@ -38,6 +38,11 @@ const contentSchema = new mongoose.Schema(
       type: String,
       default: 'general',
     },
+    targetMinutes: {
+      type: Number,
+      default: 25,
+      min: 1,
+    },
     isPublic: {
       type: Boolean,
       default: false,

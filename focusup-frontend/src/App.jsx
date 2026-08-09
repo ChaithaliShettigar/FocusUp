@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect } from 'react'
+import { useMemo, useState, useEffect, useCallback } from 'react'
 import { Route, Routes, useLocation } from 'react-router-dom'
 import { toast } from 'react-hot-toast'
 import { NavBar } from './components/NavBar'
@@ -6,6 +6,7 @@ import { HelpBot } from './components/HelpBot'
 import { MiniBreak } from './components/MiniBreak'
 import { OnlineUsersIndicator } from './components/OnlineUsersIndicator'
 import { ActiveSessionBanner } from './components/ActiveSessionBanner'
+import { TargetTimeModal } from './components/TargetTimeModal'
 import { useFocusStore } from './store/useFocusStore'
 import { useFocusTracking } from './hooks/useFocusTracking'
 import { useSessionTimer } from './hooks/useSessionTimer'
@@ -34,14 +35,17 @@ function App() {
   const location = useLocation()
   const { 
     endSession, 
+    updateSession,
     currentSessionId, 
     isAuthenticated, 
     user, 
     focusScore, 
     setAuthenticated,
     focusPreferences,
+    updateFocusScoreRealtime,
   } = useFocusStore()
   const [showBreak, setShowBreak] = useState(false)
+  const [showTargetReached, setShowTargetReached] = useState(false)
   const activeSession = useActiveSession()
 
   // Initialize socket connection if user is authenticated
@@ -68,11 +72,29 @@ function App() {
 
   useRealtimeNotifications()
 
-  useSessionTimer(currentSessionId, activeSession?.targetMinutes, () => {
+  const handleTargetReached = useCallback(() => {
     if (!currentSessionId) return
+    setShowTargetReached(true)
+    toast('Target time reached!', { icon: '⏰' })
+  }, [currentSessionId])
+
+  const handleContinueStudying = useCallback(() => {
+    if (!currentSessionId) return
+    // Clear the targetReached flag so the timer can fire again if needed
+    updateSession(currentSessionId, { targetReached: false })
+    setShowTargetReached(false)
+    toast.success('Keep going! You\'re doing great.')
+  }, [currentSessionId, updateSession])
+
+  const handleEndSessionFromModal = useCallback(() => {
+    if (!currentSessionId) return
+    setShowTargetReached(false)
     endSession(currentSessionId, 'completed')
-    toast.success('Target reached! Focus score updated.')
-  })
+    updateFocusScoreRealtime()
+    toast.success('Session completed! Focus score updated.')
+  }, [currentSessionId, endSession, updateFocusScoreRealtime])
+
+  useSessionTimer(currentSessionId, activeSession?.targetMinutes, handleTargetReached)
 
   const hideNav = location.pathname === '/'
 
@@ -96,6 +118,14 @@ function App() {
       {!hideNav && <OnlineUsersIndicator />}
 
       <MiniBreak open={showBreak} onClose={() => setShowBreak(false)} />
+
+      <TargetTimeModal
+        open={showTargetReached}
+        elapsedSeconds={activeSession?.elapsedSeconds || 0}
+        targetMinutes={activeSession?.targetMinutes || 25}
+        onContinue={handleContinueStudying}
+        onEndSession={handleEndSessionFromModal}
+      />
 
     </PageWrapper>
   )

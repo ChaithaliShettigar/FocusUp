@@ -25,7 +25,7 @@ import Content from '../models/Content.js'
 // Create content
 export const createContent = async (req, res) => {
   try {
-    const { title, description, type, url, tags, category, isPublic } = req.body
+    const { title, description, type, url, tags, category, isPublic, targetMinutes } = req.body
 
     if (!title || title.trim().length === 0) {
       return res.status(400).json({ message: 'Title is required' })
@@ -44,6 +44,7 @@ export const createContent = async (req, res) => {
       tags: tags || [],
       category: category || 'general',
       isPublic: isPublic || false,
+      targetMinutes: targetMinutes || 25,
     })
 
     res.status(201).json({

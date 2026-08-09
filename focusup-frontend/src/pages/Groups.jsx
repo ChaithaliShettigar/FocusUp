@@ -1,212 +1,124 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { DoodleBackground } from '../components/DoodleBackground'
 import { groupAPI, contentAPI } from '../services/api'
-import { useFocusStore } from '../store/useFocusStore'
-import { useSessionTimer } from '../hooks/useSessionTimer'
-import { toast } from 'react-hot-toast'
-import { Users, Copy, Plus, LogOut, Trash2, Wifi, Upload, Link, Play, Timer, FileText, Video, Code, Send } from 'lucide-react'
 import { socketService } from '../services/socket'
+import { useFocusStore } from '../store/useFocusStore'
+import { toast } from 'react-hot-toast'
+import {
+  Users, Copy, Plus, Trash2, Upload, Play, Square,
+  FileText, Video, Code, Send, ArrowLeft, Search, UserPlus
+} from 'lucide-react'
 
 export const Groups = () => {
   const location = useLocation()
   const navigate = useNavigate()
-
-  const { 
-    groups, 
-    onlineUsers, 
-    joinGroupRoom, 
-    leaveGroupRoom, 
-    pushNotification,
-    startSession,
-    endSession,
-    setCurrentSession,
-    currentSessionId,
-    user
+  const {
+    groups, onlineUsers, joinGroupRoom, leaveGroupRoom,
+    startSession, endSession, setCurrentSession, currentSessionId, user
   } = useFocusStore()
-  
+
   const [localGroups, setLocalGroups] = useState([])
+  const [loading, setLoading] = useState(false)
+  const [selectedGroup, setSelectedGroup] = useState(null)
+  const [activeTab, setActiveTab] = useState('materials')
+
+  // Modals
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [showJoinModal, setShowJoinModal] = useState(false)
   const [groupName, setGroupName] = useState('')
   const [groupCode, setGroupCode] = useState('')
-  const [loading, setLoading] = useState(false)
-  const [selectedGroupForDetails, setSelectedGroupForDetails] = useState(null)
-  const [showGroupDetails, setShowGroupDetails] = useState(false)
-  
-  // Chat states
-  const [activeTab, setActiveTab] = useState('materials') // 'materials' | 'chat'
-  const [chatMessages, setChatMessages] = useState([])
-  const [newMessage, setNewMessage] = useState('')
-  
-  // Resource management states
-  const [showAddResourceModal, setShowAddResourceModal] = useState(false)
-  const [selectedGroupForResource, setSelectedGroupForResource] = useState(null)
-  const [resourceType, setResourceType] = useState('pdf') // 'pdf', 'youtube', 'code'
+
+  // Resource states
   const [resourceTitle, setResourceTitle] = useState('')
   const [youtubeLink, setYoutubeLink] = useState('')
-  const [codeNotes, setCodeNotes] = useState('')
   const [codeTitle, setCodeTitle] = useState('')
-  
-  // Study session states
-  const [studyMode, setStudyMode] = useState(false)
-  const [previewMode, setPreviewMode] = useState(false)
-  const [selectedResource, setSelectedResource] = useState(null)
-  const [locatedResourceId, setLocatedResourceId] = useState(null)
+  const [codeNotes, setCodeNotes] = useState('')
   const [targetMinutes, setTargetMinutes] = useState(25)
-  const [activeStudyGroup, setActiveStudyGroup] = useState(null)
+  const [materialTargets, setMaterialTargets] = useState({})
+  const [viewingResource, setViewingResource] = useState(null)
 
-  // Session timer hook
-  useSessionTimer(currentSessionId, targetMinutes, () => {
-    if (!currentSessionId) return
-    endSession(currentSessionId, 'completed')
-    toast.success('Study session completed! Focus score updated.')
-    setStudyMode(false)
-    setPreviewMode(false)
-    setSelectedResource(null)
-    setActiveStudyGroup(null)
-  })
+  // Chat
+  const [chatMessages, setChatMessages] = useState([])
+  const [newMessage, setNewMessage] = useState('')
+  const chatEndRef = useRef(null)
 
-  // Memoized embed URL for selected content (same logic as Learn component)
-  const embedUrl = useMemo(() => {
-    if (!selectedResource) return ''
-    if (selectedResource.type === 'youtube') {
-      // Handle different YouTube URL formats
-      let videoId = selectedResource.url
-      if (selectedResource.url.includes('watch?v=')) {
-        videoId = selectedResource.url.split('v=')[1]?.split('&')[0]
-      } else if (selectedResource.url.includes('youtu.be/')) {
-        videoId = selectedResource.url.split('youtu.be/')[1]?.split('?')[0]
-      } else if (selectedResource.url.includes('/embed/')) {
-        videoId = selectedResource.url.split('/embed/')[1]?.split('?')[0]
-      }
-      return `https://www.youtube.com/embed/${videoId}`
-    }
-    return selectedResource.url
-  }, [selectedResource])
+  // Search
+  const [searchQuery, setSearchQuery] = useState('')
 
-  useEffect(() => {
-    fetchUserGroups()
-  }, [])
+  useEffect(() => { fetchUserGroups() }, [])
 
-  // Sync with global state groups
   useEffect(() => {
     setLocalGroups(groups)
   }, [groups])
 
+  // Auto-select group from navigation state
   useEffect(() => {
     const openGroupId = location.state?.openGroupId
-    const openResourceId = location.state?.openResourceId
-    const locateOnly = Boolean(location.state?.locateOnly)
-    const previewOnly = Boolean(location.state?.previewOnly)
-
-    if (!openGroupId || !openResourceId || localGroups.length === 0) return
-
-    const targetGroup = localGroups.find((group) => String(group._id) === String(openGroupId))
-    if (!targetGroup) return
-
-    const groupResources = Array.isArray(targetGroup.resources) ? targetGroup.resources : []
-    const targetResource = groupResources.find(
-      (resource) => String(resource.id || resource._id) === String(openResourceId)
-    )
-    if (!targetResource) return
-
-    const normalizedType = (() => {
-      const type = String(targetResource.type || '').toLowerCase()
-      if (type === 'pdf' || type === 'youtube' || type === 'code') return type
-      if (type === 'note') return 'code'
-      const link = targetResource.link || targetResource.url || ''
-      if (typeof link === 'string' && (link.includes('youtube.com') || link.includes('youtu.be'))) return 'youtube'
-      return 'pdf'
-    })()
-
-    setSelectedGroupForDetails(targetGroup)
-    setShowGroupDetails(true)
-
-    if (locateOnly) {
-      const resolvedResourceId = targetResource.id || targetResource._id
-      setLocatedResourceId(String(resolvedResourceId))
-      setSelectedResource(null)
-      setActiveStudyGroup(targetGroup)
-      setStudyMode(false)
-      setPreviewMode(false)
-      toast.success(`Located in Group "${targetGroup.name}" materials.`)
-      setTimeout(() => {
-        const target = document.getElementById(`group-resource-${resolvedResourceId}`)
-        if (target) target.scrollIntoView({ behavior: 'smooth', block: 'center' })
-      }, 60)
+    if (openGroupId && localGroups.length > 0) {
+      const g = localGroups.find(grp => String(grp._id) === String(openGroupId))
+      if (g) {
+        setSelectedGroup(g)
+        setChatMessages(g.chatMessages || [])
+      }
       navigate('/groups', { replace: true, state: {} })
-      return
     }
+  }, [location.state, localGroups])
 
-    setSelectedResource({
-      ...targetResource,
-      id: targetResource.id || targetResource._id,
-      title: targetResource.title || targetResource.name || 'Untitled resource',
-      type: normalizedType,
-      url: targetResource.link || targetResource.url || '',
-      notes: targetResource.content || targetResource.notes || '',
-    })
-    setActiveStudyGroup(targetGroup)
-    setStudyMode(!previewOnly)
-    setPreviewMode(previewOnly)
-
-    navigate('/groups', { replace: true, state: {} })
-  }, [location.state, localGroups, navigate])
-
-  // Join group rooms for real-time communication
+  // Join rooms
   useEffect(() => {
-    localGroups.forEach(group => {
-      if (group._id) {
-        joinGroupRoom(group._id)
-      }
-    })
+    localGroups.forEach(g => { if (g._id) joinGroupRoom(g._id) })
+    return () => { localGroups.forEach(g => { if (g._id) leaveGroupRoom(g._id) }) }
+  }, [localGroups])
 
-    // Cleanup function to leave rooms when component unmounts
-    return () => {
-      localGroups.forEach(group => {
-        if (group._id) {
-          leaveGroupRoom(group._id)
-        }
-      })
-    }
-  }, [localGroups, joinGroupRoom, leaveGroupRoom])
-
-  // Chat socket listeners
+  // Chat socket
   useEffect(() => {
-    if (showGroupDetails && selectedGroupForDetails) {
-      const handleNewMessage = (data) => {
-        if (data.groupId === selectedGroupForDetails._id) {
-          setChatMessages(prev => [...prev, data.message])
-        }
-      }
-      socketService.onGroupMessageReceived(handleNewMessage)
-      return () => {
-        socketService.removeAllListeners('groupMessageReceived')
+    if (!selectedGroup) return
+    // Load saved messages for this group
+    try {
+      const saved = localStorage.getItem(`chat_${selectedGroup._id}`)
+      if (saved) setChatMessages(JSON.parse(saved))
+      else setChatMessages([])
+    } catch { setChatMessages([]) }
+
+    const handleMsg = (data) => {
+      if (data.groupId === selectedGroup._id) {
+        const incoming = data.message || data
+        setChatMessages(prev => {
+          // Deduplicate by timestamp + senderId + text
+          const isDuplicate = prev.some(
+            m => m.senderId === incoming.senderId && m.text === incoming.text &&
+                 Math.abs(new Date(m.timestamp) - new Date(incoming.timestamp)) < 2000
+          )
+          if (isDuplicate) return prev
+          return [...prev, { ...incoming, timestamp: incoming.timestamp || new Date().toISOString() }]
+        })
       }
     }
-  }, [showGroupDetails, selectedGroupForDetails])
+    socketService.onGroupMessageReceived(handleMsg)
+    return () => { socketService.off('groupMessageReceived', handleMsg) }
+  }, [selectedGroup])
 
-  // Helper function to check if a user is online
-  const isUserOnline = (userId) => {
-    return onlineUsers.some(user => user.userId === userId)
-  }
+  // Persist messages to localStorage
+  useEffect(() => {
+    if (selectedGroup && chatMessages.length > 0) {
+      try {
+        localStorage.setItem(`chat_${selectedGroup._id}`, JSON.stringify(chatMessages))
+      } catch {}
+    }
+  }, [chatMessages, selectedGroup])
 
-  // Get updated focus score for online users
-  const getLatestFocusScore = (userId, defaultScore) => {
-    const onlineUser = onlineUsers.find(user => user.userId === userId)
-    return onlineUser ? onlineUser.focusScore : defaultScore
-  }
+  // Auto scroll chat
+  useEffect(() => {
+    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }, [chatMessages])
 
   const fetchUserGroups = async () => {
     setLoading(true)
     try {
-      const response = await groupAPI.getUserGroups()
-      if (response.success) {
-        setLocalGroups(response.groups || [])
-      }
-    } catch (error) {
-      console.error('Fetch groups error:', error)
+      const res = await groupAPI.getUserGroups()
+      if (res.success) setLocalGroups(res.groups || [])
+    } catch {
       toast.error('Failed to load groups')
     } finally {
       setLoading(false)
@@ -215,24 +127,19 @@ export const Groups = () => {
 
   const handleCreateGroup = async (e) => {
     e.preventDefault()
-    if (!groupName.trim()) {
-      toast.error('Please enter a group name')
-      return
-    }
-
+    if (!groupName.trim()) return toast.error('Enter a group name')
     setLoading(true)
     try {
-      const response = await groupAPI.createGroup({ name: groupName })
-      if (response.success) {
-        toast.success('Group created successfully!')
-        setLocalGroups([...localGroups, response.group])
+      const res = await groupAPI.createGroup({ name: groupName })
+      if (res.success) {
+        toast.success('Group created!')
+        setLocalGroups([...localGroups, res.group])
         setGroupName('')
         setShowCreateModal(false)
-        joinGroupRoom(response.group._id)
+        joinGroupRoom(res.group._id)
       }
-    } catch (error) {
-      console.error('Create group error:', error)
-      toast.error(error.message || 'Failed to create group')
+    } catch (err) {
+      toast.error(err.message || 'Failed to create group')
     } finally {
       setLoading(false)
     }
@@ -240,1233 +147,552 @@ export const Groups = () => {
 
   const handleJoinGroup = async (e) => {
     e.preventDefault()
-    const normalizedCode = groupCode.trim().toUpperCase().replace(/\s+/g, '')
-
-    if (!normalizedCode) {
-      toast.error('Please enter a group code')
-      return
-    }
-
+    const code = groupCode.trim().toUpperCase().replace(/\s+/g, '')
+    if (!code) return toast.error('Enter a group code')
     setLoading(true)
     try {
-      const response = await groupAPI.joinGroupByCode({ code: normalizedCode })
-      if (response.success) {
-        toast.success('Joined group successfully!')
-        setLocalGroups([...localGroups, response.group])
+      const res = await groupAPI.joinGroupByCode({ code })
+      if (res.success) {
+        toast.success('Joined group!')
+        setLocalGroups([...localGroups, res.group])
         setGroupCode('')
         setShowJoinModal(false)
-        joinGroupRoom(response.group._id)
+        joinGroupRoom(res.group._id)
       }
-    } catch (error) {
-      console.error('Join group error:', error)
-      toast.error(error.message || 'Failed to join group')
+    } catch (err) {
+      toast.error(err.message || 'Failed to join group')
     } finally {
       setLoading(false)
     }
   }
 
-  const copyToClipboard = (code) => {
+  const copyCode = (code) => {
     navigator.clipboard.writeText(code)
     toast.success('Group code copied!')
   }
 
-  const openGroupDetails = (group) => {
-    setSelectedGroupForDetails(group)
-    setChatMessages(group.chatMessages || [])
-    setActiveTab('materials')
-    setShowGroupDetails(true)
+  const isUserOnline = (userId) => onlineUsers.some(u => u.userId === userId)
+
+  // ── Resource handlers ──
+  const handlePdfUpload = async (e) => {
+    const file = e.target.files?.[0]
+    if (!file || !selectedGroup) return
+    if (file.type !== 'application/pdf') return toast.error('Only PDFs allowed')
+    if (file.size > 10 * 1024 * 1024) return toast.error('Max 10MB')
+    setLoading(true)
+    try {
+      const fd = new FormData()
+      fd.append('file', file)
+      fd.append('title', file.name)
+      const cRes = await contentAPI.uploadFile(fd)
+      if (cRes.success) {
+        const rRes = await groupAPI.addResource(selectedGroup._id, {
+          title: file.name, link: cRes.content.url, type: 'pdf'
+        })
+        if (rRes.success) {
+          setSelectedGroup(rRes.group)
+          setLocalGroups(prev => prev.map(g => g._id === selectedGroup._id ? rRes.group : g))
+          toast.success('PDF uploaded!')
+          e.target.value = ''
+        }
+      }
+    } catch { toast.error('Upload failed') } finally { setLoading(false) }
+  }
+
+  const handleYoutubeAdd = async () => {
+    if (!youtubeLink.trim()) return toast.error('Enter a YouTube URL')
+    if (!selectedGroup) return
+    setLoading(true)
+    try {
+      const res = await groupAPI.addResource(selectedGroup._id, {
+        title: youtubeLink.trim(), link: youtubeLink.trim(), type: 'youtube'
+      })
+      if (res.success) {
+        setSelectedGroup(res.group)
+        setLocalGroups(prev => prev.map(g => g._id === selectedGroup._id ? res.group : g))
+        setYoutubeLink('')
+        toast.success('Video added!')
+      }
+    } catch { toast.error('Failed') } finally { setLoading(false) }
+  }
+
+  const handleCodeAdd = async () => {
+    if (!codeTitle.trim()) return toast.error('Enter a title')
+    if (!selectedGroup) return
+    setLoading(true)
+    try {
+      const res = await groupAPI.addResource(selectedGroup._id, {
+        title: codeTitle.trim(), content: codeNotes, type: 'code'
+      })
+      if (res.success) {
+        setSelectedGroup(res.group)
+        setLocalGroups(prev => prev.map(g => g._id === selectedGroup._id ? res.group : g))
+        setCodeTitle(''); setCodeNotes('')
+        toast.success('Code notes added!')
+      }
+    } catch { toast.error('Failed') } finally { setLoading(false) }
+  }
+
+  const handleDeleteResource = async (resource) => {
+    if (!selectedGroup) return
+    if (!window.confirm(`Remove "${resource.title}"?`)) return
+    setLoading(true)
+    try {
+      const res = await groupAPI.deleteResource(selectedGroup._id, resource.id)
+      if (res.success) {
+        setSelectedGroup(res.group)
+        setLocalGroups(prev => prev.map(g => g._id === selectedGroup._id ? res.group : g))
+        toast.success('Removed!')
+      }
+    } catch { toast.error('Failed') } finally { setLoading(false) }
+  }
+
+  const handleStartFocus = (resource) => {
+    const mins = materialTargets[resource.id] || targetMinutes || 25
+    if (mins < 1) return toast.error('Set target time')
+    const sid = startSession({
+      contentId: resource.id, contentType: resource.type,
+      targetMinutes: mins, groupId: selectedGroup._id
+    })
+    setCurrentSession(sid)
+    setViewingResource(resource)
+    toast.success(`Focus started for ${mins} min!`)
+  }
+
+  const handleEndFocus = () => {
+    if (currentSessionId) {
+      endSession(currentSessionId, 'completed')
+      toast.success('Session completed!')
+    }
+    setViewingResource(null)
   }
 
   const handleSendMessage = (e) => {
     e.preventDefault()
-    if (!newMessage.trim() || !selectedGroupForDetails || !user) return
-    
-    socketService.sendGroupMessage({
-      groupId: selectedGroupForDetails._id,
-      text: newMessage.trim(),
+    if (!newMessage.trim() || !selectedGroup || !user) return
+
+    const msg = {
       senderId: user._id || user.id,
-      senderName: user.name || user.username || 'User'
-    })
+      senderName: user.name || user.username || 'User',
+      text: newMessage.trim(),
+      timestamp: new Date().toISOString(),
+    }
+
+    setChatMessages(prev => [...prev, msg])
     setNewMessage('')
-  }
 
-  const openAddResourceModal = (group) => {
-    setSelectedGroupForResource(group)
-    setShowAddResourceModal(true)
-    setResourceType('pdf')
-    setResourceTitle('')
-    setYoutubeLink('')
-    setCodeNotes('')
-  }
-
-  const startStudySession = (resource, group) => {
-    setActiveStudyGroup(group)
-    setSelectedResource(resource)
-    setStudyMode(true)
-    setPreviewMode(false)
-    
-    // Start the focus session timer
-    const sessionId = Date.now().toString()
-    startSession({
-      id: sessionId,
-      type: 'focus',
-      targetMinutes: targetMinutes,
-      startTime: Date.now(),
-      status: 'active',
-      groupId: group._id,
-      resourceId: resource.id,
-      contentId: resource.id,
-      contentType: resource.type,
-    })
-    
-    setCurrentSession(sessionId)
-    toast.success(`Started ${targetMinutes}-minute study session!`)
-  }
-
-  const endStudySession = () => {
-    if (currentSessionId) {
-      endSession(currentSessionId, 'completed')
-      setCurrentSession(null)
-      toast.success('Study session completed! Focus score updated.')
-    }
-    setStudyMode(false)
-    setPreviewMode(false)
-    setSelectedResource(null)
-    setActiveStudyGroup(null)
-  }
-
-  const getYouTubeEmbedUrl = (url) => {
-    if (!url) return ''
-    
-    const videoIdMatch = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([^&\n?#]+)/)
-    const videoId = videoIdMatch?.[1]
-    
-    return videoId ? `https://www.youtube.com/embed/${videoId}` : url
-  }
-
-  const renderPDFViewer = (content) => {
-    if (!content) return null
-    
-    return (
-      <iframe
-        src={content}
-        width="100%"
-        height="600px"
-        style={{ border: 'none' }}
-        title="PDF Viewer"
-      />
-    )
-  }
-
-  const handleAddResource = async (e) => {
-    e.preventDefault()
-    
-    if (!selectedGroupForResource) return
-    
-    let resourceData = {
-      groupId: selectedGroupForResource._id,
-      title: resourceTitle.trim(),
-      type: resourceType
-    }
-    
-    // Validate based on resource type
-    if (resourceType === 'youtube') {
-      if (!youtubeLink.trim()) {
-        toast.error('Please enter a YouTube link')
-        return
-      }
-      
-      // Validate YouTube URL format
-      const youtubeRegex = /^(https?\:\/\/)?(www\.)?(youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)[\w-]+/
-      if (!youtubeRegex.test(youtubeLink.trim())) {
-        toast.error('Please enter a valid YouTube URL')
-        return
-      }
-      
-      resourceData.link = youtubeLink.trim()
-      resourceData.url = youtubeLink.trim()
-    } else if (resourceType === 'code') {
-      if (!resourceTitle.trim()) {
-        toast.error('Please enter a title for the code resource')
-        return
-      }
-      resourceData.content = codeNotes
-      resourceData.notes = codeNotes
-    } else if (resourceType === 'pdf') {
-      const fileInput = document.getElementById('pdf-file')
-      const file = fileInput?.files[0]
-      
-      if (!file) {
-        toast.error('Please select a PDF file')
-        return
-      }
-      
-      if (file.type !== 'application/pdf') {
-        toast.error('Only PDF files are allowed')
-        return
-      }
-      
-      if (file.size > 10 * 1024 * 1024) { // 10MB limit
-        toast.error('File size must be less than 10MB')
-        return
-      }
-
-      // Upload the PDF to backend and then add as group resource
-      try {
-        const formData = new FormData()
-        formData.append('file', file)
-        formData.append('title', resourceTitle.trim() || file.name)
-
-        const contentResp = await contentAPI.uploadFile(formData)
-        if (contentResp.success) {
-          resourceData.link = contentResp.content.url
-          resourceData.url = contentResp.content.url
-          resourceData.fileName = file.name
-          resourceData.title = resourceTitle.trim() || file.name.replace('.pdf', '')
-        } else {
-          toast.error('Failed to upload file')
-          return
-        }
-      } catch (err) {
-        console.error('File upload failed:', err)
-        toast.error('File upload failed')
-        return
-      }
-    }
-    
-    setLoading(true)
     try {
-      // Persist resource to backend
-      const response = await groupAPI.addResource(selectedGroupForResource._id, resourceData)
-      if (response.success) {
-        // Update local groups state
-        setLocalGroups(prev => prev.map(g => 
-          g._id === selectedGroupForResource._id ? response.group : g
-        ))
-        if (selectedGroupForDetails?._id === selectedGroupForResource._id) {
-          setSelectedGroupForDetails(response.group)
-        }
-
-        toast.success('Resource added successfully!')
-        setShowAddResourceModal(false)
-        // Reset form
-        setResourceTitle('')
-        setYoutubeLink('')
-        setCodeNotes('')
-      }
-    } catch (error) {
-      console.error('Add resource error:', error)
-      toast.error('Failed to add resource')
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const handleStartStudySession = (group, resource) => {
-    if (!targetMinutes || targetMinutes <= 0) {
-      toast.error('Please set a valid target time')
-      return
-    }
-    
-    const sessionId = startSession({ 
-      contentId: resource.id, 
-      contentType: resource.type,
-      targetMinutes,
-      groupId: group._id,
-      resourceTitle: resource.title
-    })
-    
-    setCurrentSession(sessionId)
-    setStudyMode(true)
-    setPreviewMode(false)
-    setSelectedResource(resource)
-    setActiveStudyGroup(group)
-    toast.success('Study session started! Stay focused.')
-  }
-
-  const handleEndStudySession = () => {
-    if (currentSessionId) {
-      endSession(currentSessionId, 'completed')
-    }
-    setStudyMode(false)
-    setPreviewMode(false)
-    setSelectedResource(null)
-    setActiveStudyGroup(null)
-    toast.success('Study session completed!')
-  }
-
-  // Learn section-like handlers for group resources
-  const handlePdfUpload = async (e, group) => {
-    const file = e.target.files?.[0]
-    if (!file) return
-    
-    if (file.type !== 'application/pdf') {
-      toast.error('Only PDF files are allowed')
-      return
-    }
-    
-    if (file.size > 10 * 1024 * 1024) {
-      toast.error('File size must be less than 10MB')
-      return
-    }
-    
-    setLoading(true)
-    try {
-      // Upload file to backend (FormData)
-      const formData = new FormData()
-      formData.append('file', file)
-      formData.append('title', file.name)
-
-      const contentResp = await contentAPI.uploadFile(formData)
-      if (contentResp.success) {
-        const content = contentResp.content
-        const resourceData = {
-          title: content.title,
-          link: content.url,
-          type: 'pdf'
-        }
-
-        const response = await groupAPI.addResource(group._id, resourceData)
-        if (response.success) {
-          // Update local groups state
-          setLocalGroups(prev => prev.map(g => 
-            g._id === group._id ? response.group : g
-          ))
-          // Update selected group for details if it's the same group
-          if (selectedGroupForDetails?._id === group._id) {
-            setSelectedGroupForDetails(response.group)
-          }
-          toast.success('PDF uploaded successfully! Ready for focus sessions.')
-          // Reset file input
-          e.target.value = ''
-        }
-      }
-    } catch (error) {
-      console.error('Upload PDF error:', error)
-      toast.error(error.message || 'Failed to upload PDF')
-    } finally {
-      setLoading(false)
-    }
-
-  const handleYoutubeAdd = async (group) => {
-    if (!youtubeLink.trim()) {
-      toast.error('Please enter a YouTube URL')
-      return
-    }
-    
-    // Validate YouTube URL format
-    const youtubeRegex = /^(https?\:\/\/)?(www\.)?(youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)[\w-]+/
-    if (!youtubeRegex.test(youtubeLink.trim())) {
-      toast.error('Please enter a valid YouTube URL')
-      return
-    }
-    
-    setLoading(true)
-    try {
-      const resourceData = {
-        title: youtubeLink.trim(),
-        link: youtubeLink.trim(),
-        type: 'youtube'
-      }
-      
-      const response = await groupAPI.addResource(group._id, resourceData)
-      if (response.success) {
-        // Update local groups state
-        setLocalGroups(prev => prev.map(g => 
-          g._id === group._id ? response.group : g
-        ))
-        // Update selected group for details if it's the same group
-        if (selectedGroupForDetails?._id === group._id) {
-          setSelectedGroupForDetails(response.group)
-        }
-        setYoutubeLink('')
-        toast.success('YouTube video saved! Set a timer to start focus session.')
-      }
-    } catch (error) {
-      console.error('Add YouTube error:', error)
-      toast.error(error.message || 'Failed to add YouTube video')
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const handleCodeAdd = async (group) => {
-    if (!codeTitle.trim()) {
-      toast.error('Please enter a title for the code')
-      return
-    }
-    
-    setLoading(true)
-    try {
-      const resourceData = {
-        title: codeTitle.trim(),
-        content: codeNotes,
-        type: 'code'
-      }
-      
-      const response = await groupAPI.addResource(group._id, resourceData)
-      if (response.success) {
-        // Update local groups state
-        setLocalGroups(prev => prev.map(g => 
-          g._id === group._id ? response.group : g
-        ))
-        // Update selected group for details if it's the same group
-        if (selectedGroupForDetails?._id === group._id) {
-          setSelectedGroupForDetails(response.group)
-        }
-        setCodeTitle('')
-        setCodeNotes('')
-        toast.success('Code notes saved! Ready for focus tracking.')
-      }
-    } catch (error) {
-      console.error('Add code error:', error)
-      toast.error(error.message || 'Failed to add code notes')
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const startGroupFocus = (group, resource) => {
-    if (!targetMinutes || targetMinutes <= 0) {
-      toast.error('Set a target time to start focus session.')
-      return
-    }
-    
-    if (!resource || !resource.id) {
-      toast.error('Invalid resource selected.')
-      return
-    }
-    
-    const sessionId = startSession({ 
-      contentId: resource.id, 
-      contentType: resource.type,
-      targetMinutes,
-      groupId: group._id,
-      resourceTitle: resource.title,
-      resourceType: resource.type
-    })
-    
-    setCurrentSession(sessionId)
-    setStudyMode(true)
-    setPreviewMode(false)
-    setLocatedResourceId(null)
-    setSelectedResource({
-      ...resource,
-      // Ensure we have the right URL field for display
-      url: resource.link || resource.url,
-      notes: resource.content || resource.notes
-    })
-    setActiveStudyGroup(group)
-    toast.success(`Focus session started! Stay focused for ${targetMinutes} minutes.`, { 
-      icon: '🎯',
-      duration: 4000 
-    })
-  }
-    setStudyMode(true)
-    toast.success('Timer started. Stay active to grow your focus score.')
-  }
-
-  const stopGroupFocus = () => {
-    if (currentSessionId) {
-      endSession(currentSessionId, 'completed')
-      toast.success('Focus session completed! Check your analytics.', { 
-        icon: '📊',
-        duration: 4000 
+      socketService.sendGroupMessage({
+        groupId: selectedGroup._id,
+        text: msg.text,
+        senderId: msg.senderId,
+        senderName: msg.senderName,
       })
-    }
-    setStudyMode(false)
-    setPreviewMode(false)
-    setSelectedResource(null)
-    setActiveStudyGroup(null)
+    } catch {}
   }
 
-  const deleteGroupResource = async (group, resource) => {
-    const confirmed = window.confirm(`Remove "${resource.title}" from group materials?`)
-    if (!confirmed) return
-    
-    setLoading(true)
-    try {
-      const response = await groupAPI.deleteResource(group._id, resource.id)
-      
-      if (response.success) {
-        // Clean up blob URL if it's a PDF
-        if (resource.type === 'pdf' && typeof resource.link === 'string' && resource.link.startsWith('blob:')) {
-          URL.revokeObjectURL(resource.link)
-        }
-        
-        // If the item being deleted is currently opened, close it
-        if (selectedResource && selectedResource.id === resource.id) {
-          setSelectedResource(null)
-          setStudyMode(false)
-          setActiveStudyGroup(null)
-          if (currentSessionId) {
-            endSession(currentSessionId, 'cancelled')
-          }
-        }
-        
-        // Update local groups state
-        setLocalGroups(prev => prev.map(g => 
-          g._id === group._id ? response.group : g
-        ))
-        
-        // Update selected group for details if it's the same group
-        if (selectedGroupForDetails?._id === group._id) {
-          setSelectedGroupForDetails(response.group)
-        }
-        
-        toast.success('Resource removed from group materials.')
-      }
-    } catch (error) {
-      console.error('Delete resource error:', error)
-      toast.error(error.message || 'Could not remove this item.')
-    } finally {
-      setLoading(false)
-    }
-  }
+  const filteredGroups = localGroups.filter(g =>
+    g.name?.toLowerCase().includes(searchQuery.toLowerCase())
+  )
 
   const getResourceIcon = (type) => {
-    switch (type) {
-      case 'pdf': return <FileText className="w-5 h-5" />
-      case 'youtube': return <Video className="w-5 h-5" />
-      case 'code': return <Code className="w-5 h-5" />
-      default: return <FileText className="w-5 h-5" />
-    }
+    if (type === 'pdf') return <FileText className="w-4 h-4" />
+    if (type === 'youtube') return <Video className="w-4 h-4" />
+    return <Code className="w-4 h-4" />
   }
 
-  const getEmbedUrl = (resource) => {
-    if (resource.type === 'youtube') {
-      let videoId = ''
-      
-      // Handle different YouTube URL formats
-      if (resource.url.includes('youtube.com/watch?v=')) {
-        videoId = resource.url.split('v=')[1]?.split('&')[0]
-      } else if (resource.url.includes('youtu.be/')) {
-        videoId = resource.url.split('youtu.be/')[1]?.split('?')[0]
-      } else if (resource.url.includes('youtube.com/embed/')) {
-        videoId = resource.url.split('embed/')[1]?.split('?')[0]
-      }
-      
-      if (videoId) {
-        return `https://www.youtube.com/embed/${videoId}?rel=0&modestbranding=1`
-      }
-    }
-    return resource.url
-  }
-
-  if (loading) {
+  // ── LOADING ──
+  if (loading && localGroups.length === 0) {
     return (
       <DoodleBackground>
-        <div className="flex items-center justify-center h-64">
-          <div className="text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-teal mx-auto"></div>
-            <p className="mt-4 text-ink/60">Loading groups...</p>
-          </div>
+        <div className="flex items-center justify-center h-[60vh]">
+          <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-teal" />
         </div>
       </DoodleBackground>
     )
   }
 
+  // ── MAIN LAYOUT ──
   return (
     <DoodleBackground>
-      <div className="max-w-6xl mx-auto space-y-8">
-        {/* Header */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-2">
-          <div>
-            <h2 className="text-4xl font-bold text-ink">My Groups</h2>
-            <p className="mt-2 text-ink/70">Create groups or join existing ones to collaborate with others</p>
+      <div className="flex gap-0 h-[calc(100vh-120px)] rounded-3xl overflow-hidden bg-white/80 shadow-soft border border-white/70">
+
+        {/* ── LEFT PANEL: Group List ── */}
+        <div className={`flex flex-col border-r border-ink/10 ${selectedGroup ? 'hidden md:flex' : 'flex'} w-full md:w-80 lg:w-96`}>
+          {/* Header */}
+          <div className="p-4 border-b border-ink/10">
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="text-xl font-bold text-ink">Groups</h2>
+              <div className="flex gap-2">
+                <button onClick={() => setShowJoinModal(true)}
+                  className="p-2 rounded-full bg-blue-500 text-white hover:bg-blue-600 transition-colors" title="Join Group">
+                  <UserPlus className="w-4 h-4" />
+                </button>
+                <button onClick={() => setShowCreateModal(true)}
+                  className="p-2 rounded-full bg-teal-500 text-white hover:bg-teal-600 transition-colors" title="Create Group">
+                  <Plus className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-ink/40" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search groups..."
+                className="w-full pl-9 pr-4 py-2 rounded-xl bg-clay/50 border border-ink/10 text-sm focus:outline-none focus:border-teal"
+              />
+            </div>
           </div>
-          <div className="flex gap-3 flex-shrink-0">
-            <button
-              onClick={() => setShowJoinModal(true)}
-              className="rounded-2xl bg-gradient-to-r from-blue-500 to-blue-700 px-5 py-3 font-semibold text-white shadow-md hover:shadow-lg transition-all flex items-center"
-            >
-              <Plus className="w-5 h-5 mr-2" />
-              <span>Join Group</span>
-            </button>
-            <button
-              onClick={() => setShowCreateModal(true)}
-              className="rounded-2xl bg-gradient-to-r from-teal-400 to-teal-600 px-5 py-3 font-semibold text-white shadow-md hover:shadow-lg transition-all flex items-center"
-            >
-              <Plus className="w-5 h-5 mr-2" />
-              <span>Create Group</span>
-            </button>
+
+          {/* Group List */}
+          <div className="flex-1 overflow-y-auto">
+            {filteredGroups.length === 0 ? (
+              <div className="flex flex-col items-center justify-center h-full text-center p-6">
+                <Users className="w-12 h-12 text-ink/20 mb-3" />
+                <p className="text-sm text-ink/60">No groups yet</p>
+                <button onClick={() => setShowCreateModal(true)}
+                  className="mt-3 text-sm font-semibold text-teal hover:underline">
+                  Create your first group
+                </button>
+              </div>
+            ) : (
+              filteredGroups.map((group) => {
+                const isSelected = selectedGroup?._id === group._id
+                const memberCount = group.members?.length || 0
+                const resourceCount = group.resources?.length || 0
+                return (
+                  <button
+                    key={group._id}
+                    onClick={() => { setSelectedGroup(group); setChatMessages(group.chatMessages || []); setActiveTab('materials') }}
+                    className={`w-full text-left p-4 border-b border-ink/5 hover:bg-clay/30 transition-colors ${isSelected ? 'bg-teal/10 border-l-4 border-l-teal' : ''}`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-12 h-12 rounded-full bg-gradient-to-br from-teal to-blue flex items-center justify-center text-white font-bold text-lg shrink-0">
+                        {group.name?.charAt(0).toUpperCase()}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center justify-between">
+                          <p className="font-semibold text-ink truncate">{group.name}</p>
+                        </div>
+                        <div className="flex items-center gap-3 mt-0.5">
+                          <span className="text-xs text-ink/50 flex items-center gap-1">
+                            <Users className="w-3 h-3" /> {memberCount}
+                          </span>
+                          <span className="text-xs text-ink/50 flex items-center gap-1">
+                            <FileText className="w-3 h-3" /> {resourceCount}
+                          </span>
+                          <span className="text-xs font-mono text-teal">{group.code}</span>
+                        </div>
+                      </div>
+                    </div>
+                  </button>
+                )
+              })
+            )}
           </div>
         </div>
 
-        {/* Online Users Indicator */}
-        {onlineUsers.length > 0 && (
-          <div className="bg-white/80 rounded-3xl p-5 shadow-soft">
-            <div className="flex items-center gap-2 mb-3">
-              <Wifi className="w-5 h-5 text-green-500" />
-              <h3 className="font-semibold text-ink">Online Users ({onlineUsers.length})</h3>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              {onlineUsers.slice(0, 10).map((user) => (
-                <div key={user.userId} className="flex items-center gap-2 px-3 py-1.5 bg-green-50 rounded-full text-sm">
-                  <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
-                  <span className="font-medium text-green-700">{user.username}</span>
-                  <span className="text-teal-600 font-bold">{user.focusScore}</span>
+        {/* ── RIGHT PANEL: Group Details ── */}
+        {selectedGroup ? (
+          <div className={`flex-1 flex flex-col ${selectedGroup ? 'flex' : 'hidden md:flex'}`}>
+            {/* Group Header */}
+            <div className="flex items-center gap-3 p-4 border-b border-ink/10 bg-white/50">
+              <button onClick={() => setSelectedGroup(null)}
+                className="md:hidden p-2 rounded-full hover:bg-clay/50 transition-colors">
+                <ArrowLeft className="w-5 h-5 text-ink" />
+              </button>
+              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-teal to-blue flex items-center justify-center text-white font-bold shrink-0">
+                {selectedGroup.name?.charAt(0).toUpperCase()}
+              </div>
+              <div className="flex-1 min-w-0">
+                <h3 className="font-bold text-ink truncate">{selectedGroup.name}</h3>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-mono text-teal">{selectedGroup.code}</span>
+                  <button onClick={() => copyCode(selectedGroup.code)}
+                    className="text-ink/40 hover:text-teal transition-colors">
+                    <Copy className="w-3 h-3" />
+                  </button>
                 </div>
-              ))}
-              {onlineUsers.length > 10 && (
-                <span className="px-3 py-1.5 bg-gray-100 rounded-full text-sm text-gray-600">
-                  +{onlineUsers.length - 10} more
-                </span>
+              </div>
+              {currentSessionId && (
+                <button onClick={handleEndFocus}
+                  className="flex items-center gap-1.5 px-4 py-2 rounded-full bg-red-500 text-white text-sm font-semibold hover:bg-red-600 transition-colors">
+                  <Square className="w-4 h-4" /> End Focus
+                </button>
               )}
             </div>
-          </div>
-        )}
 
-        {/* Groups Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {localGroups.map((group) => (
-            <div
-              key={group._id}
-              className="group rounded-3xl bg-white/80 p-6 shadow-soft hover:shadow-xl transition-all duration-300"
-            >
-              <div className="flex items-start justify-between mb-4">
-                <h3 className="text-xl font-bold text-ink">{group.name}</h3>
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    copyToClipboard(group.code)
-                  }}
-                  className="p-2 rounded-full bg-ink/10 hover:bg-ink/20 transition-colors"
-                  title="Copy group code"
-                >
-                  <Copy className="w-4 h-4 text-ink/60" />
+            {/* Tabs */}
+            <div className="flex border-b border-ink/10 bg-white/30">
+              {['materials', 'members', 'chat'].map((tab) => (
+                <button key={tab} onClick={() => setActiveTab(tab)}
+                  className={`flex-1 py-2.5 text-sm font-semibold capitalize transition-colors ${
+                    activeTab === tab ? 'text-teal border-b-2 border-teal' : 'text-ink/50 hover:text-ink/80'
+                  }`}>
+                  {tab}
                 </button>
-              </div>
+              ))}
+            </div>
 
-              <p className="text-sm text-ink/70 mb-5">{group.description || 'No description'}</p>
+            {/* Tab Content */}
+            <div className="flex-1 flex flex-col overflow-hidden min-h-0">
+              {/* ── MATERIALS TAB ── */}
+              {activeTab === 'materials' && (
+                <div className="flex-1 overflow-y-auto p-4 space-y-4">
+                  {/* Upload Section */}
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <label className="flex flex-col items-center justify-center p-4 rounded-2xl border-2 border-dashed border-ink/15 hover:border-teal/50 bg-clay/20 cursor-pointer transition-colors">
+                      <Upload className="w-6 h-6 text-ink/40 mb-1" />
+                      <span className="text-xs font-medium text-ink/60">Upload PDF</span>
+                      <input type="file" accept="application/pdf" onChange={handlePdfUpload} className="hidden" />
+                    </label>
+                    <div className="flex flex-col p-4 rounded-2xl border border-ink/10 bg-clay/20">
+                      <span className="text-xs font-medium text-ink/60 mb-2">YouTube Link</span>
+                      <input value={youtubeLink} onChange={(e) => setYoutubeLink(e.target.value)}
+                        placeholder="https://youtube.com/..." className="text-xs rounded-lg border border-ink/10 px-2 py-1.5 mb-2 focus:outline-none focus:border-teal" />
+                      <button onClick={handleYoutubeAdd} disabled={!youtubeLink.trim() || loading}
+                        className="text-xs font-semibold text-sand bg-ink rounded-lg py-1.5 hover:bg-ink/90 disabled:opacity-40 transition-colors">
+                        Add
+                      </button>
+                    </div>
+                    <div className="flex flex-col p-4 rounded-2xl border border-ink/10 bg-clay/20">
+                      <span className="text-xs font-medium text-ink/60 mb-2">Code Notes</span>
+                      <input value={codeTitle} onChange={(e) => setCodeTitle(e.target.value)}
+                        placeholder="Title" className="text-xs rounded-lg border border-ink/10 px-2 py-1.5 mb-1 focus:outline-none focus:border-teal" />
+                      <textarea value={codeNotes} onChange={(e) => setCodeNotes(e.target.value)}
+                        placeholder="Notes or snippet..." rows={2}
+                        className="text-xs rounded-lg border border-ink/10 px-2 py-1.5 mb-2 font-mono focus:outline-none focus:border-teal resize-none" />
+                      <button onClick={handleCodeAdd} disabled={!codeTitle.trim() || loading}
+                        className="text-xs font-semibold text-sand bg-ink rounded-lg py-1.5 hover:bg-ink/90 disabled:opacity-40 transition-colors">
+                        Add
+                      </button>
+                    </div>
+                  </div>
 
-              <div className="grid grid-cols-2 gap-4 mb-5">
-                <div>
-                  <p className="text-xs text-ink/60 uppercase tracking-wider">Group Code</p>
-                  <p className="text-lg font-mono font-bold text-teal">{group.code}</p>
-                </div>
-
-                <div>
-                  <p className="text-xs text-ink/60 uppercase tracking-wider">Members</p>
-                  <p className="text-2xl font-bold text-ink">{group.members?.length || 0}</p>
-                </div>
-              </div>
-
-              {group.members && group.members.length > 0 && (
-                <div className="mb-5">
-                  <p className="text-xs text-ink/60 uppercase tracking-wider mb-2">Recent Members</p>
-                  {group.members.slice(0, 3).map((member) => {
-                    const userData = member.userId || member
-                    const isOnline = isUserOnline(userData._id)
-                    return (
-                      <div key={member._id || userData._id} className="flex items-center gap-2 mb-1.5">
-                        <div className="relative">
-                          <div className="w-7 h-7 rounded-full bg-gradient-to-br from-teal to-blue flex items-center justify-center text-white text-xs font-bold">
-                            {userData.name?.charAt(0).toUpperCase() || 'U'}
+                  {/* Materials List */}
+                  {selectedGroup.resources && selectedGroup.resources.length > 0 ? (
+                    <div className="space-y-2">
+                      {selectedGroup.resources.map((r) => {
+                        const isViewing = viewingResource?.id === r.id && currentSessionId
+                        return (
+                          <div key={r.id} className={`flex items-center gap-3 p-3 rounded-2xl bg-white border transition-all ${
+                            isViewing ? 'border-teal ring-2 ring-teal/20' : 'border-ink/10 hover:shadow-sm'
+                          }`}>
+                            <div className="p-2 rounded-xl bg-clay/50 shrink-0">
+                              {getResourceIcon(r.type)}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-semibold text-ink truncate">{r.title}</p>
+                              <p className="text-xs text-ink/50 capitalize">{r.type}</p>
+                            </div>
+                            <div className="flex items-center gap-2 shrink-0">
+                              <div className="flex items-center gap-1">
+                                <input
+                                  type="number"
+                                  min={1}
+                                  value={materialTargets[r.id] || 25}
+                                  onChange={(e) => setMaterialTargets(prev => ({
+                                    ...prev, [r.id]: Math.max(1, Number(e.target.value) || 25)
+                                  }))}
+                                  className="w-12 rounded-lg border border-ink/15 px-1.5 py-1 text-xs text-center focus:border-teal focus:outline-none"
+                                />
+                                <span className="text-[10px] text-ink/50">min</span>
+                              </div>
+                              {isViewing ? (
+                                <button onClick={handleEndFocus}
+                                  className="flex items-center gap-1 px-3 py-1.5 rounded-full bg-red-500 text-white text-xs font-semibold hover:bg-red-600 transition-colors">
+                                  <Square className="w-3 h-3" /> End
+                                </button>
+                              ) : (
+                                <button onClick={() => handleStartFocus(r)}
+                                  className="flex items-center gap-1 px-3 py-1.5 rounded-full bg-teal text-white text-xs font-semibold hover:bg-teal-600 transition-colors">
+                                  <Play className="w-3 h-3" /> Focus
+                                </button>
+                              )}
+                              <button onClick={() => handleDeleteResource(r)}
+                                className="p-1.5 rounded-full hover:bg-red-50 text-ink/30 hover:text-red-500 transition-colors">
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
                           </div>
-                          {isOnline && (
-                            <div className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-green-400 border-2 border-white rounded-full"></div>
-                          )}
+                        )
+                      })}
+                    </div>
+                  ) : (
+                    <div className="text-center py-10">
+                      <FileText className="w-10 h-10 text-ink/20 mx-auto mb-2" />
+                      <p className="text-sm text-ink/50">No materials yet. Add PDFs, videos, or code notes above.</p>
+                    </div>
+                  )}
+
+                  {/* ── Material Viewer ── */}
+                  {viewingResource && currentSessionId && (
+                    <div className="mt-4 rounded-2xl border border-ink/10 bg-white overflow-hidden">
+                      <div className="flex items-center justify-between p-3 border-b border-ink/10 bg-clay/30">
+                        <div className="flex items-center gap-2 min-w-0">
+                          {getResourceIcon(viewingResource.type)}
+                          <p className="text-sm font-semibold text-ink truncate">{viewingResource.title}</p>
                         </div>
-                        <span className="text-sm text-ink font-medium">{userData.name || userData.username}</span>
-                        {isOnline && <Wifi className="w-3 h-3 text-green-500" />}
+                        <button onClick={handleEndFocus}
+                          className="flex items-center gap-1 px-3 py-1.5 rounded-full bg-red-500 text-white text-xs font-semibold hover:bg-red-600 transition-colors">
+                          <Square className="w-3 h-3" /> End
+                        </button>
                       </div>
-                    )
-                  })}
-                  {group.members.length > 3 && (
-                    <p className="text-xs text-ink/60 mt-1">+{group.members.length - 3} more</p>
+                      {viewingResource.type === 'youtube' ? (
+                        <iframe
+                          title={viewingResource.title}
+                          src={(() => {
+                            const url = viewingResource.link || viewingResource.url || ''
+                            const match = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/|embed\/)([^&\n?#]+)/)
+                            return match ? `https://www.youtube.com/embed/${match[1]}` : url
+                          })()}
+                          className="aspect-video w-full"
+                          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                          allowFullScreen
+                        />
+                      ) : viewingResource.type === 'code' ? (
+                        <textarea
+                          value={viewingResource.content || viewingResource.notes || ''}
+                          readOnly
+                          className="h-[400px] w-full bg-ink/5 p-4 font-mono text-sm text-ink"
+                        />
+                      ) : (
+                        <iframe
+                          src={viewingResource.link || viewingResource.url}
+                          title={viewingResource.title}
+                          className="h-[400px] w-full border-0"
+                        />
+                      )}
+                    </div>
                   )}
                 </div>
               )}
 
-              {/* Resources Section */}
-              <div className="border-t border-ink/10 pt-4 mb-5">
-                <div className="flex items-center justify-between mb-3">
-                  <p className="text-xs text-ink/60 uppercase tracking-wider">Study Resources</p>
-                  <button
-                    onClick={() => openAddResourceModal(group)}
-                    className="flex items-center gap-1 text-xs bg-teal-500 text-white px-2.5 py-1 rounded-full shadow-sm hover:bg-teal-600 transition-colors"
-                  >
-                    <Plus className="w-3 h-3" />
-                    Add
-                  </button>
-                </div>
-                
-                {group.resources && group.resources.length > 0 ? (
+              {/* ── MEMBERS TAB ── */}
+              {activeTab === 'members' && (
+                <div className="flex-1 overflow-y-auto p-4">
+                  <p className="text-sm text-ink/50 mb-3">{selectedGroup.members?.length || 0} members</p>
                   <div className="space-y-2">
-                    {group.resources.slice(0, 3).map((resource) => (
-                      <div key={resource.id} className="flex items-center justify-between bg-ink/5 rounded-xl p-2.5">
-                        <div className="flex items-center gap-2 min-w-0 flex-1">
-                          {getResourceIcon(resource.type)}
-                          <span className="text-sm text-ink font-medium truncate">{resource.title}</span>
+                    {selectedGroup.members?.map((member) => {
+                      const u = member.userId || member
+                      const online = isUserOnline(u._id)
+                      return (
+                        <div key={u._id} className="flex items-center gap-3 p-3 rounded-2xl bg-white border border-ink/10">
+                          <div className="relative">
+                            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-teal to-blue flex items-center justify-center text-white font-bold text-sm">
+                              {u.name?.charAt(0).toUpperCase() || 'U'}
+                            </div>
+                            {online && <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-green-400 border-2 border-white rounded-full" />}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="font-semibold text-ink text-sm truncate">{u.name || u.username}</p>
+                            <p className="text-xs text-ink/50">{online ? 'Online' : 'Offline'}</p>
+                          </div>
+                          <span className="text-sm font-bold text-teal">{u.focusScore || 0}</span>
                         </div>
-                        <button
-                          onClick={() => handleStartStudySession(group, resource)}
-                          className="flex items-center gap-1 text-xs bg-blue-500 text-white px-2.5 py-1 rounded-full hover:bg-blue-600 transition-colors shrink-0 ml-2"
-                        >
-                          <Play className="w-3 h-3" />
-                          Study
-                        </button>
-                      </div>
-                    ))}
-                    {group.resources.length > 3 && (
-                      <p className="text-xs text-ink/60">+{group.resources.length - 3} more resources</p>
-                    )}
-                  </div>
-                ) : (
-                  <p className="text-xs text-ink/60 italic">No resources yet. Add PDFs, YouTube videos, or code notes!</p>
-                )}
-              </div>
-
-              {/* Quick Actions */}
-              <div className="flex gap-2">
-                <button
-                  onClick={() => openGroupDetails(group)}
-                  className="flex-1 rounded-2xl bg-ink/10 px-4 py-2.5 text-sm font-semibold text-ink hover:bg-ink/20 transition-colors"
-                >
-                  View Details
-                </button>
-              </div>
-            </div>
-          ))}
-
-          {localGroups.length === 0 && (
-            <div className="col-span-full text-center py-16">
-              <Users className="w-16 h-16 text-ink/30 mx-auto mb-4" />
-              <h3 className="text-xl font-semibold text-ink mb-2">No groups yet</h3>
-              <p className="text-ink/70 mb-6">Create your first group or join an existing one to get started!</p>
-              <button
-                onClick={() => setShowCreateModal(true)}
-                className="rounded-2xl bg-gradient-to-r from-teal-400 to-teal-600 px-6 py-3 font-semibold text-white shadow-md hover:shadow-lg transition-all"
-              >
-                Create Your First Group
-              </button>
-            </div>
-          )}
-        </div>
-
-        {/* Create Group Modal */}
-        {showCreateModal && (
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-            <div className="bg-white rounded-3xl p-8 max-w-md w-full mx-4">
-              <h3 className="text-2xl font-bold text-ink mb-6">Create New Group</h3>
-              <form onSubmit={handleCreateGroup}>
-                <div className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium text-ink/70 mb-2">
-                      Group Name
-                    </label>
-                    <input
-                      type="text"
-                      value={groupName}
-                      onChange={(e) => setGroupName(e.target.value)}
-                      className="w-full rounded-2xl border border-ink/20 px-4 py-3 focus:outline-none focus:ring-2 focus:ring-teal/50"
-                      placeholder="Enter group name"
-                      required
-                    />
+                      )
+                    })}
                   </div>
                 </div>
-                <div className="flex gap-3 mt-6">
-                  <button
-                    type="button"
-                    onClick={() => setShowCreateModal(false)}
-                    className="flex-1 rounded-2xl border border-ink/20 px-4 py-3 font-semibold text-ink hover:bg-ink/5 transition-colors"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={loading}
-                    className="flex-1 rounded-2xl bg-gradient-to-r from-teal-400 to-teal-600 px-4 py-3 font-semibold text-white hover:shadow-lg transition-all disabled:opacity-50"
-                  >
-                    {loading ? 'Creating...' : 'Create Group'}
-                  </button>
-                </div>
-              </form>
-            </div>
-          </div>
-        )}
+              )}
 
-        {/* Join Group Modal */}
-        {showJoinModal && (
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-            <div className="bg-white rounded-3xl p-8 max-w-md w-full mx-4">
-              <h3 className="text-2xl font-bold text-ink mb-6">Join Group</h3>
-              <form onSubmit={handleJoinGroup}>
-                <div className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium text-ink/70 mb-2">
-                      Group Code
-                    </label>
-                    <input
-                      type="text"
-                      value={groupCode}
-                        onChange={(e) => setGroupCode(e.target.value.toUpperCase().replace(/\s+/g, ''))}
-                      className="w-full rounded-2xl border border-ink/20 px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue/50 font-mono"
-                      placeholder="Enter group code (e.g., CT4HXMAB)"
-                      maxLength={8}
-                      required
-                    />
-                  </div>
-                </div>
-                <div className="flex gap-3 mt-6">
-                  <button
-                    type="button"
-                    onClick={() => setShowJoinModal(false)}
-                    className="flex-1 rounded-2xl border border-ink/20 px-4 py-3 font-semibold text-ink hover:bg-ink/5 transition-colors"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={loading || groupCode.length < 6}
-                    className="flex-1 rounded-2xl bg-gradient-to-r from-blue-500 to-blue-700 px-4 py-3 font-semibold text-white shadow-md hover:shadow-lg transition-all disabled:opacity-50"
-                  >
-                    {loading ? 'Joining...' : 'Join Group'}
-                  </button>
-                </div>
-              </form>
-            </div>
-          </div>
-        )}
-
-        {/* Group Details Modal */}
-        {showGroupDetails && selectedGroupForDetails && (
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-            <div className="bg-white rounded-3xl p-8 max-w-2xl w-full mx-4 max-h-[85vh] overflow-y-auto">
-              <div className="flex items-start justify-between mb-6">
-                <h3 className="text-2xl font-bold text-ink">{selectedGroupForDetails.name}</h3>
-                <button
-                  onClick={() => setShowGroupDetails(false)}
-                  className="text-ink/50 hover:text-ink text-2xl"
-                >
-                  ✕
-                </button>
-              </div>
-
-              <div className="space-y-8">
-                <div>
-                  <p className="text-sm text-ink/60 uppercase tracking-wider mb-2">Group Code</p>
-                  <div className="flex items-center gap-3">
-                    <p className="text-2xl font-mono font-bold text-teal">{selectedGroupForDetails.code}</p>
-                    <button
-                      onClick={() => copyToClipboard(selectedGroupForDetails.code)}
-                      className="p-2 rounded-full bg-teal/10 hover:bg-teal/20 transition-colors"
-                    >
-                      <Copy className="w-4 h-4 text-teal" />
-                    </button>
-                  </div>
-                </div>
-
-                {/* Members */}
-                <div>
-                  <p className="text-sm text-ink/60 uppercase tracking-wider mb-3">Members ({selectedGroupForDetails.members?.length || 0})</p>
-                  <div className="space-y-2 max-h-40 overflow-y-auto">
-                    {selectedGroupForDetails.members && selectedGroupForDetails.members.length > 0 ? (
-                      selectedGroupForDetails.members.map((member) => {
-                        const userData = member.userId || member
-                        const isOnline = isUserOnline(userData._id)
-                        const currentFocusScore = getLatestFocusScore(userData._id, userData.focusScore || 0)
-                        
-                        return (
-                          <div key={member._id || userData._id} className="flex items-center justify-between p-3 rounded-xl bg-ink/5">
-                            <div className="flex items-center space-x-3">
-                              <div className="relative">
-                                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-teal to-blue flex items-center justify-center text-white font-bold">
-                                  {userData.name?.charAt(0).toUpperCase() || 'U'}
-                                </div>
-                                {isOnline && (
-                                  <div className="absolute -bottom-1 -right-1 w-3 h-3 bg-green-400 border-2 border-white rounded-full"></div>
-                                )}
-                              </div>
-                              <div>
-                                <p className="font-semibold text-ink flex items-center gap-2">
-                                  {userData.name}
-                                  {isOnline && <Wifi className="w-4 h-4 text-green-500" />}
-                                </p>
-                                <p className="text-sm text-ink/60">@{userData.username || userData.email}</p>
-                                {isOnline && <p className="text-xs text-green-600 font-medium">Online</p>}
-                              </div>
-                            </div>
-                            <div className="text-right">
-                              <p className="font-bold text-teal">{currentFocusScore}</p>
-                              <p className="text-xs text-ink/60">Focus Score</p>
-                            </div>
-                          </div>
-                        )
-                      })
-                    ) : (
-                      <p className="text-ink/60">No members yet</p>
-                    )}
-                  </div>
-                </div>
-
-                {/* Tabs */}
-                <div className="flex border-b border-ink/10 mb-6">
-                  <button
-                    onClick={() => setActiveTab('materials')}
-                    className={`px-5 py-2.5 font-semibold text-sm transition-colors ${
-                      activeTab === 'materials'
-                        ? 'text-teal border-b-2 border-teal'
-                        : 'text-ink/50 hover:text-ink/80'
-                    }`}
-                  >
-                    Study Materials
-                  </button>
-                  <button
-                    onClick={() => setActiveTab('chat')}
-                    className={`px-5 py-2.5 font-semibold text-sm transition-colors ${
-                      activeTab === 'chat'
-                        ? 'text-teal border-b-2 border-teal'
-                        : 'text-ink/50 hover:text-ink/80'
-                    }`}
-                  >
-                    Group Chat
-                  </button>
-                </div>
-
-                {/* Learning Library Section */}
-                {activeTab === 'materials' && (
-                <div>
-                  <div className="flex items-center justify-between mb-5">
-                    <div>
-                      <h4 className="text-lg font-semibold text-ink mb-1">Group Learning Library</h4>
-                      <p className="text-sm text-ink/70">Upload PDFs or add YouTube links. Focus sessions always need a target timer.</p>
-                    </div>
-                  </div>
-
-                  {/* Learning Interface - Same as Learn Section */}
-                  <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-3 mb-6">
-                    <div className="rounded-3xl bg-white/85 p-6 shadow-soft">
-                      <h5 className="text-lg font-semibold text-ink">Upload PDF</h5>
-                      <p className="text-sm text-ink/70 mt-1">Files stay local to this browser session.</p>
-                      <input
-                        type="file"
-                        accept="application/pdf"
-                        onChange={(e) => handlePdfUpload(e, selectedGroupForDetails)}
-                        className="mt-4 w-full rounded-2xl border border-ink/10 bg-white px-3 py-2.5 text-sm"
-                      />
-                    </div>
-                    
-                    <div className="rounded-3xl bg-white/85 p-6 shadow-soft">
-                      <h5 className="text-lg font-semibold text-ink">Add YouTube link</h5>
-                      <p className="text-sm text-ink/70 mt-1">Videos open inside FocusUp so focus tracking works.</p>
-                      <div className="mt-4 flex flex-col gap-3">
-                        <input
-                          value={youtubeLink}
-                          onChange={(e) => setYoutubeLink(e.target.value)}
-                          placeholder="https://youtube.com/watch?v=..."
-                          className="w-full rounded-2xl border border-ink/10 bg-white px-3 py-2.5 text-sm"
-                        />
-                        <button 
-                          onClick={() => handleYoutubeAdd(selectedGroupForDetails)}
-                          className="self-start rounded-full px-5 py-2 text-sm font-semibold text-sand shadow-soft bg-ink hover:bg-ink/90 transition-colors flex items-center gap-2"
-                          disabled={loading || !youtubeLink.trim()}
-                        >
-                          <Video className="w-4 h-4" />
-                          {loading ? 'Saving...' : 'Save Video'}
-                        </button>
-                      </div>
-                    </div>
-                    
-                    <div className="rounded-3xl bg-white/85 p-6 shadow-soft">
-                      <h5 className="text-lg font-semibold text-ink">Coding study</h5>
-                      <p className="text-sm text-ink/70 mt-1">Track focused coding with notes or a snippet.</p>
-                      <div className="mt-4 flex flex-col gap-3">
-                        <input
-                          value={codeTitle}
-                          onChange={(e) => setCodeTitle(e.target.value)}
-                          placeholder="Topic or challenge"
-                          className="w-full rounded-2xl border border-ink/10 bg-white px-3 py-2.5 text-sm"
-                        />
-                        <textarea
-                          value={codeNotes}
-                          onChange={(e) => setCodeNotes(e.target.value)}
-                          placeholder="Notes, snippet, or TODOs"
-                          className="h-24 w-full rounded-2xl border border-ink/10 bg-white px-3 py-2.5 text-sm font-mono"
-                        />
-                        <button 
-                          onClick={() => handleCodeAdd(selectedGroupForDetails)}
-                          className="self-start rounded-full px-5 py-2 text-sm font-semibold text-sand shadow-soft bg-ink hover:bg-ink/90 transition-colors flex items-center gap-2"
-                          disabled={loading || !codeTitle.trim()}
-                        >
-                          <Code className="w-4 h-4" />
-                          {loading ? 'Saving...' : 'Save Code Notes'}
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Your Materials Section - Same as Learn Section */}
-                  <div className="rounded-3xl bg-white/80 p-6 shadow-soft">
-                    <div className="flex flex-wrap items-center justify-between gap-4">
-                      <div>
-                        <h5 className="text-lg font-semibold text-ink">Your group materials</h5>
-                        <p className="text-sm text-ink/70">Everything starts empty. Add items above to begin.</p>
-                      </div>
-                      <div className="flex items-center gap-3">
-                        <label className="text-sm text-ink/70">Target (minutes)</label>
-                        <input
-                          type="number"
-                          min={5}
-                          value={targetMinutes}
-                          onChange={(e) => setTargetMinutes(Number(e.target.value))}
-                          className="w-24 rounded-2xl border border-ink/10 px-3 py-2 text-sm"
-                        />
-                      </div>
-                    </div>
-                    
-                    {selectedGroupForDetails.resources && selectedGroupForDetails.resources.length > 0 ? (
-                      <div className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                        {selectedGroupForDetails.resources.map((resource) => (
-                          <div
-                            id={`group-resource-${resource.id || resource._id}`}
-                            key={resource.id || resource._id}
-                            className={`group rounded-2xl border bg-white p-5 shadow-sm hover:shadow-md transition-all ${
-                              locatedResourceId === String(resource.id || resource._id)
-                                ? 'border-teal-500 ring-2 ring-teal-200'
-                                : 'border-ink/10 hover:border-ink/20'
-                            }`}
-                          >
-                            <div className="flex items-start justify-between gap-3 mb-3">
-                              <div className="flex items-start gap-3 flex-1 min-w-0">
-                                <div className="p-2 rounded-full bg-ink/10 shrink-0">
-                                  {resource.type === 'pdf' && <FileText className="w-4 h-4 text-ink" />}
-                                  {resource.type === 'youtube' && <Video className="w-4 h-4 text-red-600" />}
-                                  {resource.type === 'code' && <Code className="w-4 h-4 text-blue-600" />}
-                                </div>
-                                <div className="flex-1 min-w-0">
-                                  <p className="text-sm font-semibold text-ink truncate" title={resource.title}>
-                                    {resource.title}
-                                  </p>
-                                  <div className="flex items-center gap-2 mt-1">
-                                    <span className="text-xs text-ink/60 capitalize">{resource.type}</span>
-                                    {locatedResourceId === String(resource.id || resource._id) && (
-                                      <span className="rounded-full bg-teal/20 text-teal-800 px-2 py-0.5 text-xs font-semibold">
-                                        Located from search
-                                      </span>
-                                    )}
-                                  </div>
-                                </div>
-                              </div>
-                              <button
-                                onClick={() => deleteGroupResource(selectedGroupForDetails, resource)}
-                                className="rounded-full border border-red-200 bg-red-50 p-2 text-red-700 hover:bg-red-100 transition-colors shrink-0"
-                                disabled={loading}
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </button>
-                            </div>
-                            <button
-                              onClick={() => startGroupFocus(selectedGroupForDetails, resource)}
-                              className="w-full rounded-full px-4 py-2.5 text-sm font-semibold text-sand shadow-soft bg-ink hover:bg-ink/90 transition-all flex items-center justify-center gap-2"
-                              disabled={!targetMinutes || targetMinutes < 5}
-                            >
-                              <Play className="w-4 h-4" />
-                              Start Learning ({targetMinutes}m)
-                            </button>
-                          </div>
-                        ))}
-                      </div>
-                    ) : (
-                      <div className="mt-4 rounded-2xl bg-clay/60 p-4 text-sm text-ink/70">
-                        No content yet. Upload a PDF or add a YouTube link to start your first focus session.
-                      </div>
-                    )}
-                  </div>
-                </div>
-                )}
-
-                {/* Chat Section */}
-                {activeTab === 'chat' && (
-                <div className="flex flex-col h-[500px] bg-ink/5 rounded-2xl border border-ink/10 overflow-hidden">
-                  <div className="flex-1 overflow-y-auto p-5 space-y-4">
+              {/* ── CHAT TAB ── */}
+              {activeTab === 'chat' && (
+                <div className="flex-1 flex flex-col min-h-0">
+                  <div className="flex-1 overflow-y-auto p-4 space-y-3 min-h-0">
                     {chatMessages.length === 0 ? (
-                      <div className="h-full flex items-center justify-center text-ink/50 text-sm italic">
-                        No messages yet. Start the conversation!
+                      <div className="flex items-center justify-center h-full text-ink/40 text-sm italic">
+                        No messages yet. Start chatting!
                       </div>
                     ) : (
-                      chatMessages.map((msg, idx) => {
+                      chatMessages.map((msg, i) => {
                         const isMine = msg.senderId === (user._id || user.id)
                         return (
-                          <div key={idx} className={`flex flex-col max-w-[80%] ${isMine ? 'self-end items-end ml-auto' : 'self-start items-start'}`}>
-                            <span className="text-xs text-ink/50 mb-1">{msg.senderName}</span>
-                            <div className={`px-4 py-2.5 rounded-2xl ${isMine ? 'bg-teal-500 text-white rounded-br-sm' : 'bg-white border border-ink/10 text-ink rounded-bl-sm'}`}>
-                              <p className="text-sm break-words whitespace-pre-wrap">{msg.text}</p>
+                          <div key={i} className={`flex flex-col max-w-[75%] ${isMine ? 'ml-auto items-end' : 'items-start'}`}>
+                            <span className="text-[10px] text-ink/40 mb-0.5 px-1">{msg.senderName}</span>
+                            <div className={`px-3 py-2 rounded-2xl text-sm ${
+                              isMine ? 'bg-teal/20 text-ink rounded-br-sm' : 'bg-white border border-ink/10 text-ink rounded-bl-sm'
+                            }`}>
+                              {msg.text}
                             </div>
-                            <span className="text-[10px] text-ink/40 mt-1">
+                            <span className="text-[10px] text-ink/30 mt-0.5 px-1">
                               {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                             </span>
                           </div>
                         )
                       })
                     )}
+                    <div ref={chatEndRef} />
                   </div>
-                  
-                  <form onSubmit={handleSendMessage} className="p-4 bg-white border-t border-ink/10 flex items-center gap-3">
-                    <input
-                      type="text"
-                      value={newMessage}
-                      onChange={(e) => setNewMessage(e.target.value)}
+                  <form onSubmit={handleSendMessage} className="p-3 border-t border-ink/10 bg-white/50 flex items-center gap-2 shrink-0">
+                    <input type="text" value={newMessage} onChange={(e) => setNewMessage(e.target.value)}
                       placeholder="Type a message..."
-                      className="flex-1 bg-ink/5 border border-ink/10 rounded-full px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal/50"
-                    />
-                    <button
-                      type="submit"
-                      disabled={!newMessage.trim()}
-                      className="p-2.5 rounded-full bg-teal text-white hover:bg-teal-600 disabled:opacity-50 transition-colors"
-                    >
-                      <Send className="w-5 h-5" />
+                      className="flex-1 bg-clay/40 rounded-full px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal/30" />
+                    <button type="submit" disabled={!newMessage.trim()}
+                      className="p-2.5 rounded-full bg-teal text-white hover:bg-teal-600 disabled:opacity-40 transition-colors">
+                      <Send className="w-4 h-4" />
                     </button>
                   </form>
                 </div>
-                )}
-              </div>
-            </div>
-          </div>
-        )}
-        {/* Add Resource Modal */}
-        {showAddResourceModal && selectedGroupForResource && (
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-            <div className="bg-white rounded-3xl p-8 max-w-md w-full mx-4">
-              <h3 className="text-2xl font-bold text-ink mb-6">Add Resource to {selectedGroupForResource.name}</h3>
-              <form onSubmit={handleAddResource}>
-                <div className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium text-ink/70 mb-2">Resource Type</label>
-                    <select
-                      value={resourceType}
-                      onChange={(e) => setResourceType(e.target.value)}
-                      className="w-full rounded-2xl border border-ink/20 px-4 py-3 focus:outline-none focus:ring-2 focus:ring-teal/50"
-                    >
-                      <option value="pdf">PDF Document</option>
-                      <option value="youtube">YouTube Video</option>
-                      <option value="code">Code/Notes</option>
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-ink/70 mb-2">Title</label>
-                    <input
-                      type="text"
-                      value={resourceTitle}
-                      onChange={(e) => setResourceTitle(e.target.value)}
-                      className="w-full rounded-2xl border border-ink/20 px-4 py-3 focus:outline-none focus:ring-2 focus:ring-teal/50"
-                      placeholder="Resource title"
-                      required={resourceType !== 'pdf'}
-                    />
-                  </div>
-
-                  {resourceType === 'pdf' && (
-                    <div>
-                      <label className="block text-sm font-medium text-ink/70 mb-2">PDF File</label>
-                      <input
-                        id="pdf-file"
-                        type="file"
-                        accept="application/pdf"
-                        className="w-full rounded-2xl border border-ink/20 px-4 py-3"
-                        required
-                      />
-                    </div>
-                  )}
-
-                  {resourceType === 'youtube' && (
-                    <div>
-                      <label className="block text-sm font-medium text-ink/70 mb-2">YouTube URL</label>
-                      <input
-                        type="url"
-                        value={youtubeLink}
-                        onChange={(e) => setYoutubeLink(e.target.value)}
-                        className="w-full rounded-2xl border border-ink/20 px-4 py-3 focus:outline-none focus:ring-2 focus:ring-teal/50"
-                        placeholder="https://youtube.com/watch?v=..."
-                        required
-                      />
-                    </div>
-                  )}
-
-                  {resourceType === 'code' && (
-                    <div>
-                      <label className="block text-sm font-medium text-ink/70 mb-2">Code/Notes</label>
-                      <textarea
-                        value={codeNotes}
-                        onChange={(e) => setCodeNotes(e.target.value)}
-                        className="w-full h-32 rounded-2xl border border-ink/20 px-4 py-3 focus:outline-none focus:ring-2 focus:ring-teal/50 font-mono"
-                        placeholder="Enter your code, notes, or study content..."
-                      />
-                    </div>
-                  )}
-                </div>
-                
-                <div className="flex gap-3 mt-6">
-                  <button
-                    type="button"
-                    onClick={() => setShowAddResourceModal(false)}
-                    className="flex-1 rounded-2xl border border-ink/20 px-4 py-3 font-semibold text-ink hover:bg-ink/5 transition-colors"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={loading}
-                    className="flex-1 rounded-2xl bg-gradient-to-r from-teal-400 to-teal-600 px-4 py-3 font-semibold text-white hover:shadow-lg transition-all disabled:opacity-50"
-                  >
-                    {loading ? 'Adding...' : 'Add Resource'}
-                  </button>
-                </div>
-              </form>
-            </div>
-          </div>
-        )}
-
-        {/* Study Session Interface - Same as Learn Section */}
-        {selectedResource && (studyMode || previewMode) && (
-          <div className="rounded-3xl bg-white/90 p-6 shadow-soft mb-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-ink/60">
-                  {studyMode ? `Learning now in ${activeStudyGroup?.name}` : `Preview mode in ${activeStudyGroup?.name}`}
-                </p>
-                <h3 className="text-xl font-semibold text-ink">{selectedResource.title}</h3>
-              </div>
-              {studyMode ? (
-                <button
-                  onClick={stopGroupFocus}
-                  className="rounded-full border border-ink/10 px-5 py-2.5 text-sm font-semibold text-ink hover:bg-clay/50 transition-colors"
-                >
-                  End session
-                </button>
-              ) : (
-                <button
-                  onClick={() => startGroupFocus(activeStudyGroup, selectedResource)}
-                  className="rounded-full bg-ink px-5 py-2.5 text-sm font-semibold text-sand shadow-soft hover:scale-[1.02] transition-all"
-                >
-                  Start focus study
-                </button>
               )}
             </div>
-            <div className="mt-5 overflow-hidden rounded-2xl border border-ink/10 bg-sand shadow-inner">
-              {selectedResource.type === 'youtube' ? (
-                <iframe
-                  title="YouTube"
-                  src={embedUrl}
-                  className="aspect-video w-full"
-                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                  allowFullScreen
-                />
-              ) : selectedResource.type === 'code' ? (
-                <textarea
-                  value={selectedResource.notes || ''}
-                  readOnly
-                  className="h-[520px] w-full bg-ink/5 p-4 font-mono text-sm text-ink"
-                  aria-label="Code notes"
-                />
-              ) : (
-                <embed src={embedUrl} type="application/pdf" className="h-[520px] w-full" />
-              )}
+          </div>
+        ) : (
+          /* No group selected */
+          <div className="hidden md:flex flex-1 items-center justify-center">
+            <div className="text-center">
+              <Users className="w-16 h-16 text-ink/15 mx-auto mb-3" />
+              <p className="text-ink/40 text-sm">Select a group to view details</p>
             </div>
           </div>
         )}
       </div>
+
+      {/* ── Create Group Modal ── */}
+      {showCreateModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-3xl p-6 max-w-sm w-full mx-4">
+            <h3 className="text-xl font-bold text-ink mb-4">Create Group</h3>
+            <form onSubmit={handleCreateGroup}>
+              <input type="text" value={groupName} onChange={(e) => setGroupName(e.target.value)}
+                placeholder="Group name" className="w-full rounded-xl border border-ink/20 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-teal/50" />
+              <div className="flex gap-3 mt-4">
+                <button type="button" onClick={() => setShowCreateModal(false)}
+                  className="flex-1 rounded-xl border border-ink/20 py-2.5 text-sm font-semibold text-ink hover:bg-clay/50">Cancel</button>
+                <button type="submit" disabled={loading || !groupName.trim()}
+                  className="flex-1 rounded-xl bg-teal py-2.5 text-sm font-semibold text-white hover:bg-teal-600 disabled:opacity-50">
+                  {loading ? 'Creating...' : 'Create'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ── Join Group Modal ── */}
+      {showJoinModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-3xl p-6 max-w-sm w-full mx-4">
+            <h3 className="text-xl font-bold text-ink mb-4">Join Group</h3>
+            <form onSubmit={handleJoinGroup}>
+              <input type="text" value={groupCode}
+                onChange={(e) => setGroupCode(e.target.value.toUpperCase().replace(/\s+/g, ''))}
+                placeholder="Group code (e.g. ABCD1234)" maxLength={8}
+                className="w-full rounded-xl border border-ink/20 px-4 py-3 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue/50" />
+              <div className="flex gap-3 mt-4">
+                <button type="button" onClick={() => setShowJoinModal(false)}
+                  className="flex-1 rounded-xl border border-ink/20 py-2.5 text-sm font-semibold text-ink hover:bg-clay/50">Cancel</button>
+                <button type="submit" disabled={loading || groupCode.length < 6}
+                  className="flex-1 rounded-xl bg-blue-500 py-2.5 text-sm font-semibold text-white hover:bg-blue-600 disabled:opacity-50">
+                  {loading ? 'Joining...' : 'Join'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </DoodleBackground>
   )
 }

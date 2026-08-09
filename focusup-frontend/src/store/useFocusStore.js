@@ -126,6 +126,11 @@ export const useFocusStore = create((set, get) => ({
   addContent: (content) =>
     set({ contents: [...get().contents, { ...content, id: content.id || makeId(), createdAt: Date.now() }] }),
 
+  updateContent: (contentId, updates) =>
+    set({
+      contents: get().contents.map((c) => (c.id === contentId ? { ...c, ...updates } : c)),
+    }),
+
   removeContent: (contentId) =>
     set((state) => {
       const filtered = state.contents.filter((c) => c.id !== contentId)
@@ -172,6 +177,7 @@ export const useFocusStore = create((set, get) => ({
       idleSeconds: 0,
       tabSwitches: 0,
       status: 'active',
+      targetReached: false,
       ...(groupId ? { groupId } : {}),
     }
     // Save to localStorage for persistence across refresh/navigation
