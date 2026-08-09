@@ -140,6 +140,27 @@ class SocketService {
     this.on('userLeftGroup', callback)
   }
 
+  // Deadline events
+  onDeadlineCreated(callback) {
+    this.on('deadlineCreated', callback)
+  }
+
+  onDeadlineUpdated(callback) {
+    this.on('deadlineUpdated', callback)
+  }
+
+  onDeadlineDeleted(callback) {
+    this.on('deadlineDeleted', callback)
+  }
+
+  onDeadlineCompleted(callback) {
+    this.on('deadlineCompleted', callback)
+  }
+
+  onDeadlineReminder(callback) {
+    this.on('deadlineReminder', callback)
+  }
+
   // Cleanup method
   removeAllListeners(event) {
     if (this.socket && this.listeners.has(event)) {

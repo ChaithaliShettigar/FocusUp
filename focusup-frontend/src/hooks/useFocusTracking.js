@@ -40,6 +40,7 @@ export const useFocusTracking = (
     const handleVisibility = () => {
       if (document.hidden) {
         addTabSwitch(sessionId)
+        useFocusStore.getState().pushNotification('Tab switched — stay focused!', 'warning')
 
         const shouldIntervene =
           interventionEnabled && (!interventionStudyOnly || isStudyContext)

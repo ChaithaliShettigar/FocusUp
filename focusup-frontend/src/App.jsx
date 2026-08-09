@@ -4,7 +4,7 @@ import { toast } from 'react-hot-toast'
 import { NavBar } from './components/NavBar'
 import { HelpBot } from './components/HelpBot'
 import { MiniBreak } from './components/MiniBreak'
-import { OnlineUsersIndicator } from './components/OnlineUsersIndicator'
+
 import { ActiveSessionBanner } from './components/ActiveSessionBanner'
 import { TargetTimeModal } from './components/TargetTimeModal'
 import { useFocusStore } from './store/useFocusStore'
@@ -20,6 +20,7 @@ import { Analytics } from './pages/Analytics'
 import { Profile } from './pages/Profile'
 import { Settings } from './pages/Settings'
 import { Search } from './pages/Search'
+import { Notifications } from './pages/Notifications'
 import { Auth } from './pages/Auth'
 import { ProtectedRoute } from './components/ProtectedRoute'
 
@@ -109,14 +110,13 @@ function App() {
         <Route path="/groups" element={<ProtectedRoute><Groups /></ProtectedRoute>} />
         <Route path="/search" element={<ProtectedRoute><Search /></ProtectedRoute>} />
         <Route path="/analytics" element={<ProtectedRoute><Analytics /></ProtectedRoute>} />
+        <Route path="/notifications" element={<ProtectedRoute><Notifications /></ProtectedRoute>} />
         <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
         <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
         <Route path="*" element={<Landing />} />
       </Routes>
       <HelpBot />
       {!hideNav && <ActiveSessionBanner />}
-      {!hideNav && <OnlineUsersIndicator />}
-
       <MiniBreak open={showBreak} onClose={() => setShowBreak(false)} />
 
       <TargetTimeModal

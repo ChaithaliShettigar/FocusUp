@@ -1,5 +1,5 @@
 // API configuration and service
-const API_BASE_URL = 'http://localhost:5020/api'
+const API_BASE_URL = (import.meta.env.VITE_API_URL || 'http://localhost:5010/api').replace(/\/$/, '')
 
 // Helper to get auth token from localStorage
 const getToken = () => localStorage.getItem('accessToken')
@@ -281,6 +281,46 @@ export const groupAPI = {
     return await apiRequest(`/groups/${groupId}/remove-member`, {
       method: 'POST',
       body: JSON.stringify({ userId }),
+    })
+  },
+}
+
+// ============ DEADLINE API ============
+
+export const deadlineAPI = {
+  createDeadline: async (groupId, deadlineData) => {
+    return await apiRequest(`/groups/${groupId}/deadlines`, {
+      method: 'POST',
+      body: JSON.stringify(deadlineData),
+    })
+  },
+
+  getGroupDeadlines: async (groupId) => {
+    return await apiRequest(`/groups/${groupId}/deadlines`, { method: 'GET' })
+  },
+
+  updateDeadline: async (groupId, deadlineId, updates) => {
+    return await apiRequest(`/groups/${groupId}/deadlines/${deadlineId}`, {
+      method: 'PUT',
+      body: JSON.stringify(updates),
+    })
+  },
+
+  deleteDeadline: async (groupId, deadlineId) => {
+    return await apiRequest(`/groups/${groupId}/deadlines/${deadlineId}`, {
+      method: 'DELETE',
+    })
+  },
+
+  markCompleted: async (groupId, deadlineId) => {
+    return await apiRequest(`/groups/${groupId}/deadlines/${deadlineId}/complete`, {
+      method: 'POST',
+    })
+  },
+
+  unmarkCompleted: async (groupId, deadlineId) => {
+    return await apiRequest(`/groups/${groupId}/deadlines/${deadlineId}/uncomplete`, {
+      method: 'POST',
     })
   },
 }

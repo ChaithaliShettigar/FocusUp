@@ -1,13 +1,14 @@
 import { useState, useEffect, useRef } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { DoodleBackground } from '../components/DoodleBackground'
-import { groupAPI, contentAPI } from '../services/api'
+import { groupAPI, contentAPI, deadlineAPI } from '../services/api'
 import { socketService } from '../services/socket'
 import { useFocusStore } from '../store/useFocusStore'
 import { toast } from 'react-hot-toast'
 import {
   Users, Copy, Plus, Trash2, Upload, Play, Square,
-  FileText, Video, Code, Send, ArrowLeft, Search, UserPlus
+  FileText, Video, Code, Send, ArrowLeft, Search, UserPlus,
+  LogOut, Clock, Calendar, CheckCircle2, AlertTriangle, Bell
 } from 'lucide-react'
 
 export const Groups = () => {
@@ -15,7 +16,8 @@ export const Groups = () => {
   const navigate = useNavigate()
   const {
     groups, onlineUsers, joinGroupRoom, leaveGroupRoom,
-    startSession, endSession, setCurrentSession, currentSessionId, user
+    startSession, endSession, setCurrentSession, currentSessionId, user,
+    pushNotification
   } = useFocusStore()
 
   const [localGroups, setLocalGroups] = useState([])
@@ -46,6 +48,27 @@ export const Groups = () => {
   // Search
   const [searchQuery, setSearchQuery] = useState('')
 
+  // Deadlines
+  const [deadlines, setDeadlines] = useState([])
+  const [showDeadlineForm, setShowDeadlineForm] = useState(false)
+  const [deadlineTitle, setDeadlineTitle] = useState('')
+  const [deadlineMessage, setDeadlineMessage] = useState('')
+  const [deadlineType, setDeadlineType] = useState('assignment')
+  const [deadlineDate, setDeadlineDate] = useState('')
+  const [deadlineTime, setDeadlineTime] = useState('')
+  const [reminderInterval, setReminderInterval] = useState(60)
+
+  const getMinDate = () => {
+    const now = new Date()
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
+  }
+
+  const getDefaultDeadlineDate = () => {
+    const tomorrow = new Date()
+    tomorrow.setDate(tomorrow.getDate() + 1)
+    return `${tomorrow.getFullYear()}-${String(tomorrow.getMonth() + 1).padStart(2, '0')}-${String(tomorrow.getDate()).padStart(2, '0')}`
+  }
+
   useEffect(() => { fetchUserGroups() }, [])
 
   useEffect(() => {
@@ -74,12 +97,26 @@ export const Groups = () => {
   // Chat socket
   useEffect(() => {
     if (!selectedGroup) return
-    // Load saved messages for this group
+
+    // Load messages from server group data first, then overlay with localStorage
+    const serverMessages = selectedGroup.chatMessages || []
     try {
       const saved = localStorage.getItem(`chat_${selectedGroup._id}`)
-      if (saved) setChatMessages(JSON.parse(saved))
-      else setChatMessages([])
-    } catch { setChatMessages([]) }
+      const localMessages = saved ? JSON.parse(saved) : []
+      // Merge: use server messages as base, add any local-only messages
+      const merged = [...serverMessages]
+      localMessages.forEach(lm => {
+        const isDup = merged.some(
+          sm => sm.senderId === lm.senderId && sm.text === lm.text &&
+               Math.abs(new Date(sm.timestamp) - new Date(lm.timestamp)) < 2000
+        )
+        if (!isDup) merged.push(lm)
+      })
+      merged.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp))
+      setChatMessages(merged)
+    } catch {
+      setChatMessages(serverMessages)
+    }
 
     const handleMsg = (data) => {
       if (data.groupId === selectedGroup._id) {
@@ -107,6 +144,54 @@ export const Groups = () => {
       } catch {}
     }
   }, [chatMessages, selectedGroup])
+
+  // Deadline socket listeners
+  useEffect(() => {
+    if (!selectedGroup) return
+
+    const handleDeadlineCreated = (data) => {
+      setDeadlines(prev => {
+        if (prev.some(d => d._id === data.deadline._id)) return prev
+        return [...prev, data.deadline]
+      })
+      toast(`New deadline: ${data.deadline.title}`, { icon: '📅' })
+    }
+
+    const handleDeadlineUpdated = (data) => {
+      setDeadlines(prev => prev.map(d => d._id === data.deadline._id ? data.deadline : d))
+    }
+
+    const handleDeadlineDeleted = (data) => {
+      setDeadlines(prev => prev.filter(d => d._id !== data.deadlineId))
+    }
+
+    const handleDeadlineCompleted = (data) => {
+      setDeadlines(prev => prev.map(d => d._id === data.deadline._id ? data.deadline : d))
+    }
+
+    const handleDeadlineReminder = (data) => {
+      if (data.groupId === selectedGroup._id) {
+        toast(`⏰ Reminder: ${data.title} - ${data.timeLeft} remaining!`, {
+          icon: '🔔',
+          duration: 8000,
+        })
+      }
+    }
+
+    socketService.onDeadlineCreated(handleDeadlineCreated)
+    socketService.onDeadlineUpdated(handleDeadlineUpdated)
+    socketService.onDeadlineDeleted(handleDeadlineDeleted)
+    socketService.onDeadlineCompleted(handleDeadlineCompleted)
+    socketService.onDeadlineReminder(handleDeadlineReminder)
+
+    return () => {
+      socketService.off('deadlineCreated', handleDeadlineCreated)
+      socketService.off('deadlineUpdated', handleDeadlineUpdated)
+      socketService.off('deadlineDeleted', handleDeadlineDeleted)
+      socketService.off('deadlineCompleted', handleDeadlineCompleted)
+      socketService.off('deadlineReminder', handleDeadlineReminder)
+    }
+  }, [selectedGroup])
 
   // Auto scroll chat
   useEffect(() => {
@@ -211,6 +296,7 @@ export const Groups = () => {
         setSelectedGroup(res.group)
         setLocalGroups(prev => prev.map(g => g._id === selectedGroup._id ? res.group : g))
         setYoutubeLink('')
+        pushNotification(`YouTube video added to ${selectedGroup.name}`, 'material')
         toast.success('Video added!')
       }
     } catch { toast.error('Failed') } finally { setLoading(false) }
@@ -228,6 +314,7 @@ export const Groups = () => {
         setSelectedGroup(res.group)
         setLocalGroups(prev => prev.map(g => g._id === selectedGroup._id ? res.group : g))
         setCodeTitle(''); setCodeNotes('')
+        pushNotification(`Code notes added to ${selectedGroup.name}`, 'material')
         toast.success('Code notes added!')
       }
     } catch { toast.error('Failed') } finally { setLoading(false) }
@@ -256,6 +343,7 @@ export const Groups = () => {
     })
     setCurrentSession(sid)
     setViewingResource(resource)
+    pushNotification(`Focus started on "${resource.title}" in ${selectedGroup.name} — ${mins} min`, 'focus')
     toast.success(`Focus started for ${mins} min!`)
   }
 
@@ -290,6 +378,176 @@ export const Groups = () => {
       })
     } catch {}
   }
+
+  const handleExitGroup = async () => {
+    if (!selectedGroup || !user) return
+    if (!window.confirm(`Are you sure you want to leave "${selectedGroup.name}"?`)) return
+    setLoading(true)
+    try {
+      const res = await groupAPI.leaveGroup(selectedGroup._id)
+      if (res.success) {
+        toast.success('You left the group')
+        socketService.leaveGroup(selectedGroup._id)
+        setLocalGroups(prev => prev.filter(g => g._id !== selectedGroup._id))
+        setSelectedGroup(null)
+      }
+    } catch (err) {
+      toast.error(err.message || 'Failed to leave group')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleDeleteGroup = async () => {
+    if (!selectedGroup) return
+    if (!window.confirm(`Are you sure you want to delete "${selectedGroup.name}"? This cannot be undone.`)) return
+    setLoading(true)
+    try {
+      const res = await groupAPI.deleteGroup(selectedGroup._id)
+      if (res.success) {
+        toast.success('Group deleted')
+        socketService.leaveGroup(selectedGroup._id)
+        setLocalGroups(prev => prev.filter(g => g._id !== selectedGroup._id))
+        setSelectedGroup(null)
+      }
+    } catch (err) {
+      toast.error(err.message || 'Failed to delete group')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const isGroupCreator = selectedGroup && user && (selectedGroup.createdBy?._id === user._id || selectedGroup.createdBy === user._id)
+
+  // ── Deadline handlers ──
+  const fetchDeadlines = async () => {
+    if (!selectedGroup) return
+    try {
+      const res = await deadlineAPI.getGroupDeadlines(selectedGroup._id)
+      if (res.success) setDeadlines(res.deadlines || [])
+    } catch {}
+  }
+
+  useEffect(() => {
+    if (selectedGroup) fetchDeadlines()
+    else setDeadlines([])
+    setShowDeadlineForm(false)
+  }, [selectedGroup])
+
+  const handleCreateDeadline = async (e) => {
+    e.preventDefault()
+    if (!deadlineTitle.trim()) return toast.error('Enter a title')
+    if (!deadlineDate) return toast.error('Select a deadline date')
+    if (!deadlineTime) return toast.error('Select a deadline time')
+    if (!selectedGroup) return
+
+    const [year, month, day] = deadlineDate.split('-').map(Number)
+    const [hours, minutes] = deadlineTime.split(':').map(Number)
+    const combined = new Date(year, month - 1, day, hours, minutes, 0, 0)
+    if (isNaN(combined.getTime())) return toast.error('Invalid date/time')
+    if (combined <= new Date()) return toast.error('Deadline must be in the future')
+
+    setLoading(true)
+    try {
+      const res = await deadlineAPI.createDeadline(selectedGroup._id, {
+        type: deadlineType,
+        title: deadlineTitle.trim(),
+        message: deadlineMessage.trim(),
+        deadline: combined.toISOString(),
+        reminderInterval,
+      })
+      if (res.success) {
+        setDeadlines(prev => [...prev, res.deadline])
+        setDeadlineTitle('')
+        setDeadlineMessage('')
+        setDeadlineType('assignment')
+        setDeadlineDate(getDefaultDeadlineDate())
+        setDeadlineTime('23:59')
+        setReminderInterval(60)
+        setShowDeadlineForm(false)
+        toast.success('Deadline created!')
+      }
+    } catch (err) {
+      toast.error(err.message || 'Failed to create deadline')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleMarkCompleted = async (deadline) => {
+    if (!selectedGroup) return
+    const isCompleted = deadline.completedBy?.some(
+      (c) => (c.userId?._id || c.userId) === (user._id || user.id)
+    )
+    try {
+      const res = isCompleted
+        ? await deadlineAPI.unmarkCompleted(selectedGroup._id, deadline._id)
+        : await deadlineAPI.markCompleted(selectedGroup._id, deadline._id)
+      if (res.success) {
+        setDeadlines(prev => prev.map(d => d._id === deadline._id ? res.deadline : d))
+        toast.success(isCompleted ? 'Unmarked as completed' : 'Marked as completed!')
+      }
+    } catch (err) {
+      toast.error(err.message || 'Failed')
+    }
+  }
+
+  const handleDeleteDeadline = async (deadline) => {
+    if (!selectedGroup) return
+    if (!window.confirm(`Delete deadline "${deadline.title}"?`)) return
+    try {
+      const res = await deadlineAPI.deleteDeadline(selectedGroup._id, deadline._id)
+      if (res.success) {
+        setDeadlines(prev => prev.filter(d => d._id !== deadline._id))
+        toast.success('Deadline deleted')
+      }
+    } catch (err) {
+      toast.error(err.message || 'Failed')
+    }
+  }
+
+  const getTimeRemaining = (deadlineDate) => {
+    const now = new Date()
+    const dl = new Date(deadlineDate)
+    const diff = dl.getTime() - now.getTime()
+    if (diff <= 0) return { expired: true, text: 'Expired' }
+    const days = Math.floor(diff / (1000 * 60 * 60 * 24))
+    const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60))
+    const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60))
+    if (days > 0) return { expired: false, text: `${days}d ${hours}h ${minutes}m`, urgent: days <= 1 }
+    if (hours > 0) return { expired: false, text: `${hours}h ${minutes}m`, urgent: hours < 3 }
+    return { expired: false, text: `${minutes}m`, urgent: true }
+  }
+
+  const deadlineTypeColors = {
+    homework: 'bg-blue-100 text-blue-700 border-blue-200',
+    project: 'bg-purple-100 text-purple-700 border-purple-200',
+    announcement: 'bg-yellow-100 text-yellow-700 border-yellow-200',
+    test: 'bg-red-100 text-red-700 border-red-200',
+    submission: 'bg-orange-100 text-orange-700 border-orange-200',
+    assignment: 'bg-teal-100 text-teal-700 border-teal-200',
+    other: 'bg-gray-100 text-gray-700 border-gray-200',
+  }
+
+  const deadlineTypeIcons = {
+    homework: '📚',
+    project: '🚀',
+    announcement: '📢',
+    test: '📝',
+    submission: '📤',
+    assignment: '✏️',
+    other: '📌',
+  }
+
+  const reminderOptions = [
+    { value: 5, label: 'Every 5 min' },
+    { value: 15, label: 'Every 15 min' },
+    { value: 30, label: 'Every 30 min' },
+    { value: 60, label: 'Every 1 hour' },
+    { value: 120, label: 'Every 2 hours' },
+    { value: 360, label: 'Every 6 hours' },
+    { value: 1440, label: 'Every day' },
+  ]
 
   const filteredGroups = localGroups.filter(g =>
     g.name?.toLowerCase().includes(searchQuery.toLowerCase())
@@ -398,12 +656,12 @@ export const Groups = () => {
         {selectedGroup ? (
           <div className={`flex-1 flex flex-col ${selectedGroup ? 'flex' : 'hidden md:flex'}`}>
             {/* Group Header */}
-            <div className="flex items-center gap-3 p-4 border-b border-ink/10 bg-white/50">
+            <div className="flex items-center gap-2 p-3 border-b border-ink/10 bg-white/50 shrink-0">
               <button onClick={() => setSelectedGroup(null)}
-                className="md:hidden p-2 rounded-full hover:bg-clay/50 transition-colors">
-                <ArrowLeft className="w-5 h-5 text-ink" />
+                className="md:hidden p-1.5 rounded-full hover:bg-clay/50 transition-colors shrink-0">
+                <ArrowLeft className="w-4 h-4 text-ink" />
               </button>
-              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-teal to-blue flex items-center justify-center text-white font-bold shrink-0">
+              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-teal to-blue flex items-center justify-center text-white font-bold text-sm shrink-0">
                 {selectedGroup.name?.charAt(0).toUpperCase()}
               </div>
               <div className="flex-1 min-w-0">
@@ -416,22 +674,40 @@ export const Groups = () => {
                   </button>
                 </div>
               </div>
-              {currentSessionId && (
-                <button onClick={handleEndFocus}
-                  className="flex items-center gap-1.5 px-4 py-2 rounded-full bg-red-500 text-white text-sm font-semibold hover:bg-red-600 transition-colors">
-                  <Square className="w-4 h-4" /> End Focus
+              <div className="flex items-center gap-1.5 ml-auto shrink-0">
+                <button onClick={handleExitGroup}
+                  className="flex items-center gap-1 px-2 py-1.5 rounded-full bg-orange-500 text-white text-xs font-semibold hover:bg-orange-600 transition-colors"
+                  title="Exit Group">
+                  <LogOut className="w-3.5 h-3.5" /> <span className="hidden sm:inline">Exit</span>
                 </button>
-              )}
+                {isGroupCreator && (
+                  <button onClick={handleDeleteGroup}
+                    className="flex items-center gap-1 px-2 py-1.5 rounded-full bg-red-500 text-white text-xs font-semibold hover:bg-red-600 transition-colors"
+                    title="Delete Group">
+                    <Trash2 className="w-3.5 h-3.5" /> <span className="hidden sm:inline">Delete</span>
+                  </button>
+                )}
+                {currentSessionId && (
+                  <button onClick={handleEndFocus}
+                    className="flex items-center gap-1 px-2 py-1.5 rounded-full bg-red-500 text-white text-xs font-semibold hover:bg-red-600 transition-colors">
+                    <Square className="w-3.5 h-3.5" /> <span className="hidden sm:inline">End Focus</span>
+                  </button>
+                )}
+              </div>
             </div>
 
             {/* Tabs */}
-            <div className="flex border-b border-ink/10 bg-white/30">
-              {['materials', 'members', 'chat'].map((tab) => (
+            <div className="flex border-b border-ink/10 bg-white/30 shrink-0">
+              {['materials', 'deadlines', 'members', 'chat'].map((tab) => (
                 <button key={tab} onClick={() => setActiveTab(tab)}
                   className={`flex-1 py-2.5 text-sm font-semibold capitalize transition-colors ${
                     activeTab === tab ? 'text-teal border-b-2 border-teal' : 'text-ink/50 hover:text-ink/80'
                   }`}>
-                  {tab}
+                  {tab === 'deadlines' ? (
+                    <span className="flex items-center justify-center gap-1">
+                      <Clock className="w-3.5 h-3.5" /> {tab}
+                    </span>
+                  ) : tab}
                 </button>
               ))}
             </div>
@@ -565,6 +841,194 @@ export const Groups = () => {
                           className="h-[400px] w-full border-0"
                         />
                       )}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* ── DEADLINES TAB ── */}
+              {activeTab === 'deadlines' && (
+                <div className="flex-1 overflow-y-auto p-4 space-y-4 min-h-[200px]">
+                  {/* Add Deadline Button */}
+                  <div className="flex items-center justify-between">
+                    <h4 className="text-sm font-bold text-ink">Deadlines</h4>
+                    <button onClick={() => {
+                      if (!showDeadlineForm) {
+                        setDeadlineDate(getDefaultDeadlineDate())
+                        setDeadlineTime('23:59')
+                        setDeadlineType('assignment')
+                        setReminderInterval(60)
+                      }
+                      setShowDeadlineForm(!showDeadlineForm)
+                    }}
+                      className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-teal-500 text-white text-sm font-bold hover:bg-teal-600 transition-colors shadow-sm">
+                      <Plus className="w-4 h-4" /> Add Deadline
+                    </button>
+                  </div>
+
+                  {/* Deadline Form */}
+                  {showDeadlineForm && (
+                    <form onSubmit={handleCreateDeadline} className="p-4 rounded-2xl border border-ink/10 bg-white space-y-3">
+                      <div className="flex items-center gap-2">
+                        <Bell className="w-4 h-4 text-teal" />
+                        <span className="text-sm font-bold text-ink">New Deadline</span>
+                      </div>
+
+                      {/* Type selector */}
+                      <div className="flex flex-wrap gap-1.5">
+                        {Object.keys(deadlineTypeColors).map((type) => (
+                          <button key={type} type="button"
+                            onClick={() => setDeadlineType(type)}
+                            className={`px-2.5 py-1 rounded-full text-xs font-medium border transition-all ${
+                              deadlineType === type
+                                ? deadlineTypeColors[type] + ' ring-2 ring-offset-1 ring-teal'
+                                : 'bg-clay/30 text-ink/50 border-ink/10 hover:bg-clay/50'
+                            }`}>
+                            {deadlineTypeIcons[type]} {type}
+                          </button>
+                        ))}
+                      </div>
+
+                      {/* Title */}
+                      <input type="text" value={deadlineTitle} onChange={(e) => setDeadlineTitle(e.target.value)}
+                        placeholder="Deadline title (e.g. Chapter 5 Homework)"
+                        className="w-full rounded-xl border border-ink/20 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal/50" />
+
+                      {/* Message */}
+                      <textarea value={deadlineMessage} onChange={(e) => setDeadlineMessage(e.target.value)}
+                        placeholder="Description or instructions (optional)" rows={2}
+                        className="w-full rounded-xl border border-ink/20 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal/50 resize-none" />
+
+                      {/* Date & Time */}
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <label className="text-xs text-ink/50 mb-1 block">Deadline Date</label>
+                          <input type="date" value={deadlineDate} onChange={(e) => setDeadlineDate(e.target.value)}
+                            min={getMinDate()}
+                            className="w-full rounded-xl border border-ink/20 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal/50" />
+                        </div>
+                        <div>
+                          <label className="text-xs text-ink/50 mb-1 block">Deadline Time</label>
+                          <input type="time" value={deadlineTime} onChange={(e) => setDeadlineTime(e.target.value)}
+                            className="w-full rounded-xl border border-ink/20 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal/50" />
+                        </div>
+                      </div>
+
+                      {/* Reminder interval */}
+                      <div>
+                        <label className="text-xs text-ink/50 mb-1 block flex items-center gap-1">
+                          <Bell className="w-3 h-3" /> Remind every
+                        </label>
+                        <select value={reminderInterval} onChange={(e) => setReminderInterval(Number(e.target.value))}
+                          className="w-full rounded-xl border border-ink/20 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal/50">
+                          {reminderOptions.map(opt => (
+                            <option key={opt.value} value={opt.value}>{opt.label}</option>
+                          ))}
+                        </select>
+                      </div>
+
+                      <div className="flex gap-2">
+                        <button type="button" onClick={() => setShowDeadlineForm(false)}
+                          className="flex-1 rounded-xl border border-ink/20 py-2 text-sm font-semibold text-ink hover:bg-clay/50">
+                          Cancel
+                        </button>
+                        <button type="submit" disabled={loading || !deadlineTitle.trim() || !deadlineDate || !deadlineTime}
+                          className="flex-1 rounded-xl bg-teal py-2 text-sm font-semibold text-white hover:bg-teal-600 disabled:opacity-50">
+                          {loading ? 'Creating...' : 'Create'}
+                        </button>
+                      </div>
+                    </form>
+                  )}
+
+                  {/* Deadlines List */}
+                  {deadlines.length > 0 ? (
+                    <div className="space-y-3">
+                      {deadlines.map((dl) => {
+                        const remaining = getTimeRemaining(dl.deadline)
+                        const isCompleted = dl.completedBy?.some(
+                          (c) => (c.userId?._id || c.userId) === (user._id || user.id)
+                        )
+                        const completedCount = dl.completedBy?.length || 0
+                        const totalMembers = selectedGroup.members?.length || 1
+                        const isPoster = (dl.postedBy?._id || dl.postedBy) === (user._id || user.id)
+
+                        return (
+                          <div key={dl._id} className={`p-4 rounded-2xl border bg-white transition-all ${
+                            remaining.expired ? 'border-red-200 opacity-70' :
+                            remaining.urgent ? 'border-orange-300 ring-1 ring-orange-200' :
+                            'border-ink/10 hover:shadow-sm'
+                          }`}>
+                            <div className="flex items-start justify-between gap-3">
+                              <div className="flex items-start gap-3 flex-1 min-w-0">
+                                <span className="text-lg shrink-0">{deadlineTypeIcons[dl.type]}</span>
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-center gap-2 flex-wrap">
+                                    <p className="text-sm font-bold text-ink truncate">{dl.title}</p>
+                                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-medium border ${deadlineTypeColors[dl.type]}`}>
+                                      {dl.type}
+                                    </span>
+                                    {isCompleted && (
+                                      <CheckCircle2 className="w-4 h-4 text-green-500 shrink-0" />
+                                    )}
+                                  </div>
+                                  {dl.message && (
+                                    <p className="text-xs text-ink/60 mt-1 line-clamp-2">{dl.message}</p>
+                                  )}
+                                  <div className="flex items-center gap-3 mt-2 flex-wrap">
+                                    <span className={`flex items-center gap-1 text-xs font-medium ${
+                                      remaining.expired ? 'text-red-500' : remaining.urgent ? 'text-orange-500' : 'text-ink/60'
+                                    }`}>
+                                      {remaining.expired ? (
+                                        <AlertTriangle className="w-3 h-3" />
+                                      ) : (
+                                        <Clock className="w-3 h-3" />
+                                      )}
+                                      {remaining.text}
+                                    </span>
+                                    <span className="text-xs text-ink/40 flex items-center gap-1">
+                                      <Calendar className="w-3 h-3" />
+                                      {new Date(dl.deadline).toLocaleDateString('en-US', {
+                                        month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
+                                      })}
+                                    </span>
+                                    <span className="text-xs text-ink/40">
+                                      by {dl.postedBy?.name || dl.postedBy?.username || 'Unknown'}
+                                    </span>
+                                  </div>
+                                  {completedCount > 0 && (
+                                    <p className="text-[10px] text-green-600 mt-1.5">
+                                      ✓ {completedCount}/{totalMembers} completed
+                                    </p>
+                                  )}
+                                </div>
+                              </div>
+
+                              <div className="flex items-center gap-1.5 shrink-0">
+                                <button onClick={() => handleMarkCompleted(dl)}
+                                  className={`flex items-center gap-1 px-2.5 py-1.5 rounded-full text-xs font-semibold transition-colors ${
+                                    isCompleted
+                                      ? 'bg-green-100 text-green-700 hover:bg-green-200'
+                                      : 'bg-clay/50 text-ink/60 hover:bg-clay hover:text-ink'
+                                  }`}>
+                                  <CheckCircle2 className="w-3 h-3" />
+                                  {isCompleted ? 'Done' : 'Complete'}
+                                </button>
+                                {(isPoster || isGroupCreator) && (
+                                  <button onClick={() => handleDeleteDeadline(dl)}
+                                    className="p-1.5 rounded-full hover:bg-red-50 text-ink/30 hover:text-red-500 transition-colors">
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  ) : (
+                    <div className="text-center py-10">
+                      <Clock className="w-10 h-10 text-ink/20 mx-auto mb-2" />
+                      <p className="text-sm text-ink/50">No deadlines yet. Add one to keep the group on track!</p>
                     </div>
                   )}
                 </div>

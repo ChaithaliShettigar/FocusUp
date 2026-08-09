@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import { getUserFromStorage, isAuthenticated as checkAuth } from '../services/api'
 import { socketService } from '../services/socket'
+import { toast } from 'react-hot-toast'
 
 // Lightweight id helper
 const makeId = () => crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2, 9)
@@ -251,8 +252,22 @@ export const useFocusStore = create((set, get) => ({
     set({ focusPreferences: defaultFocusPreferences })
   },
 
-  pushNotification: (message) =>
-    set({ notifications: [...get().notifications.slice(-3), { id: makeId(), message }] }),
+  pushNotification: (message, type = 'info') =>
+    set({
+      notifications: [
+        ...get().notifications.slice(-49),
+        { id: makeId(), message, type, read: false, timestamp: Date.now() },
+      ],
+    }),
+
+  markNotificationsRead: () =>
+    set({
+      notifications: get().notifications.map((n) => ({ ...n, read: true })),
+    }),
+
+  clearNotifications: () => set({ notifications: [] }),
+
+  unreadCount: () => get().notifications.filter((n) => !n.read).length,
 
   // Real-time functionality
   setupRealtimeListeners: () => {
@@ -321,6 +336,38 @@ export const useFocusStore = create((set, get) => ({
           g._id === data.groupId ? { ...g, ...data.updates } : g
         )
       })
+    })
+
+    // Listen for group messages
+    socketService.onGroupMessageReceived((data) => {
+      get().pushNotification(`New message from ${data.message?.senderName || 'someone'} in ${data.groupName || 'a group'}`, 'group')
+    })
+
+    // Listen for deadline reminders globally
+    socketService.onDeadlineReminder((data) => {
+      get().pushNotification(`⏰ ${data.title} — ${data.timeLeft} remaining in ${data.groupName}!`, 'deadline')
+      toast(`⏰ Reminder: ${data.title} — ${data.timeLeft} remaining in ${data.groupName}!`, {
+        icon: '🔔',
+        duration: 8000,
+        position: 'top-right',
+      })
+    })
+
+    // Listen for new deadlines
+    socketService.onDeadlineCreated((data) => {
+      get().pushNotification(`New deadline "${data.deadline?.title}" posted by ${data.postedBy || 'someone'}`, 'deadline')
+    })
+
+    // Listen for deadline completions
+    socketService.onDeadlineCompleted((data) => {
+      get().pushNotification(`${data.completedBy || 'Someone'} completed "${data.deadline?.title}"`, 'deadline')
+    })
+
+    // Listen for user joined group
+    socketService.onUserJoinedGroup((data) => {
+      if (data.username) {
+        get().pushNotification(`${data.username} joined your group`, 'group')
+      }
     })
   },
 

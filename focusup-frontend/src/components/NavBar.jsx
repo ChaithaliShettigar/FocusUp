@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import GlobalSearchBar from './GlobalSearchBar'
+import { NotificationBell } from './NotificationBell'
 import { Link, NavLink, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useFocusStore } from '../store/useFocusStore'
@@ -69,6 +70,7 @@ export const NavBar = () => {
           </div>
         </nav>
            <div className="flex items-center gap-2">
+              <NotificationBell />
               {/* Profile Icon with Dropdown */}
               <div className="relative">
                 <button

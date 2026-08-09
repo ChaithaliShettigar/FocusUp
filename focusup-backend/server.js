@@ -24,6 +24,8 @@ import contentRoutes from './routes/content.js'
 import analyticsRoutes from './routes/analytics.js'
 import profileRoutes from './routes/profile.js'
 import aiRoutes from './routes/ai.js'
+import deadlineRoutes from './routes/deadlines.js'
+import { checkDeadlinesForReminders } from './controllers/deadlineController.js'
 
 const app = express()
 const server = createServer(app)
@@ -76,6 +78,7 @@ app.use('/api/content', contentRoutes)
 app.use('/api/analytics', analyticsRoutes)
 app.use('/api/profile', profileRoutes)
 app.use('/api/ai', aiRoutes)
+app.use('/api/groups', deadlineRoutes)
 
 // Error handling middleware
 app.use(errorHandler)
@@ -164,11 +167,10 @@ io.on('connection', (socket) => {
         
         const savedMessage = group.chatMessages[group.chatMessages.length - 1]
         
-        // Broadcast to everyone in the room, including sender, or we can use io.to()
-        // Wait, socket.to() sends to everyone EXCEPT sender. We'll use req.io approach if we had it,
-        // but here we have io.to(). Let's use io.to() to send to ALL clients in room.
+        // Broadcast to everyone in the room, including sender
         io.to(`group_${groupId}`).emit('groupMessageReceived', {
           groupId,
+          groupName: group.name,
           message: savedMessage
         })
       }
@@ -218,6 +220,11 @@ const PORT = process.env.PORT || 5010
 server.listen(PORT, () => {
   console.log(`🚀 Server running on port ${PORT}`)
   console.log(`🔌 Socket.IO ready for real-time communication`)
+
+  // Schedule deadline reminder checks every 30 seconds
+  setInterval(() => {
+    checkDeadlinesForReminders(io)
+  }, 30 * 1000)
 })
 
 // Handle server errors

@@ -170,6 +170,7 @@ export const Learn = () => {
   const startSession = useFocusStore((s) => s.startSession)
   const endSession = useFocusStore((s) => s.endSession)
   const setCurrentSession = useFocusStore((s) => s.setCurrentSession)
+  const pushNotification = useFocusStore((s) => s.pushNotification)
   const isAuthenticated = useFocusStore((s) => s.isAuthenticated)
   const activeContentId = useFocusStore((s) => s.activeContentId)
   const currentSessionId = useFocusStore((s) => s.currentSessionId)
@@ -415,6 +416,7 @@ export const Learn = () => {
           url: '',
           targetMinutes: 25,
         })
+        pushNotification(`PDF "${file.name}" added to your materials`, 'material')
         toast.success('PDF added and saved!')
       }
     } catch (error) {
@@ -472,6 +474,7 @@ export const Learn = () => {
           url: link,
           targetMinutes: 25,
         })
+        pushNotification(`YouTube video "${title}" added to your materials`, 'material')
         e.target.reset()
         toast.success('YouTube link saved!')
       }
@@ -507,6 +510,7 @@ export const Learn = () => {
           notes: codeNotes,
           targetMinutes: 25,
         })
+        pushNotification(`Code notes "${codeTitle}" added to your materials`, 'material')
         setCodeTitle('')
         setCodeNotes('')
         toast.success('Code practice saved!')
@@ -534,6 +538,7 @@ export const Learn = () => {
     setSelectedContent(content)
     setPreviewOnlyOpen(false)
     setLocatedContentId(null)
+    pushNotification(`Focus session started for "${content.title}" — ${materialTarget} min`, 'focus')
     toast.success('Timer started. Stay active to grow your focus score.')
   }
 
