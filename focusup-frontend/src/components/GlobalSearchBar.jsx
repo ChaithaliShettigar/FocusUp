@@ -1,5 +1,5 @@
 import { useState, useRef } from 'react'
-import { Search } from 'lucide-react'
+import { Search, MessageSquare } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { contentAPI, groupAPI, isAuthenticated } from '../services/api'
 
@@ -27,11 +27,10 @@ export default function GlobalSearchBar() {
     if (debounceTimeout.current) clearTimeout(debounceTimeout.current)
     if (value.trim().length === 0) {
       setResults([])
-      setShowDropdown(true) // show empty state so users see "Start searching"
+      setShowDropdown(true)
       return
     }
 
-    // If user is not authenticated, show a helpful message instead of trying to call protected endpoint
     if (!isAuthenticated()) {
       setResults([])
       setShowDropdown(true)
@@ -52,6 +51,7 @@ export default function GlobalSearchBar() {
 
       const searchTerm = q.trim().toLowerCase()
 
+      // Search learn materials
       const learnMaterials = (contentRes?.content || [])
         .map((item) => ({
           id: `learn-${item._id}`,
@@ -62,6 +62,7 @@ export default function GlobalSearchBar() {
         }))
         .filter((item) => item.title.toLowerCase().includes(searchTerm))
 
+      // Search group resources
       const groupMaterials = (groupsRes?.groups || []).flatMap((group) => {
         const groupName = group?.name || 'Group'
         const resources = Array.isArray(group?.resources) ? group.resources : []
@@ -86,7 +87,26 @@ export default function GlobalSearchBar() {
           })
       })
 
-      setResults([...learnMaterials, ...groupMaterials])
+      // Search group chat messages
+      const groupMessages = (groupsRes?.groups || []).flatMap((group) => {
+        const groupName = group?.name || 'Group'
+        const messages = Array.isArray(group?.chatMessages) ? group.chatMessages : []
+
+        return messages
+          .filter((msg) => msg.text && msg.text.toLowerCase().includes(searchTerm))
+          .slice(-5) // limit to last 5 matching messages per group
+          .map((msg) => ({
+            id: `msg-${group._id}-${msg._id || msg.timestamp}`,
+            source: 'message',
+            groupId: group._id,
+            groupName,
+            senderName: msg.senderName || 'Unknown',
+            text: msg.text,
+            timestamp: msg.timestamp,
+          }))
+      })
+
+      setResults([...learnMaterials, ...groupMaterials, ...groupMessages])
       setShowDropdown(true)
     } catch (err) {
       console.error('Search error:', err)
@@ -100,7 +120,6 @@ export default function GlobalSearchBar() {
   const handleResultClick = (item) => {
     setShowDropdown(false)
     setQuery('')
-    // remove focus from input to avoid accidental keyboard interactions
     if (inputRef.current) inputRef.current.blur()
 
     if (item.source === 'learn') {
@@ -108,15 +127,28 @@ export default function GlobalSearchBar() {
       return
     }
 
-    if (item.source === 'group') {
+    if (item.source === 'group' || item.source === 'message') {
       navigate('/groups', {
         state: {
           openGroupId: item.groupId,
-          openResourceId: item.resourceId,
+          openResourceId: item.resourceId || null,
           locateOnly: true,
         },
       })
     }
+  }
+
+  const formatTime = (ts) => {
+    if (!ts) return ''
+    const d = new Date(ts)
+    const now = new Date()
+    const diffMs = now - d
+    const diffMins = Math.floor(diffMs / 60000)
+    if (diffMins < 1) return 'just now'
+    if (diffMins < 60) return `${diffMins}m ago`
+    const diffHrs = Math.floor(diffMins / 60)
+    if (diffHrs < 24) return `${diffHrs}h ago`
+    return d.toLocaleDateString()
   }
 
   return (
@@ -127,12 +159,11 @@ export default function GlobalSearchBar() {
           ref={inputRef}
           type="text"
           className="flex-1 bg-transparent outline-none text-sm"
-          placeholder="Search saved study materials..."
+          placeholder="Search study materials & messages..."
           value={query}
           onChange={handleInput}
           onFocus={() => query && setShowDropdown(true)}
           onKeyDown={(e) => {
-            // Prevent Enter from submitting any surrounding forms (avoid full page reload)
             if (e.key === 'Enter') {
               e.preventDefault()
               if (query.trim()) searchContent(query)
@@ -141,7 +172,7 @@ export default function GlobalSearchBar() {
         />
       </div>
       {showDropdown && (
-        <div className="absolute left-0 right-0 mt-1 bg-white border border-clay/60 rounded-xl shadow-lg z-50 max-h-72 overflow-y-auto">
+        <div className="absolute left-0 right-0 mt-1 bg-white border border-clay/60 rounded-xl shadow-lg z-50 max-h-80 overflow-y-auto">
           {results.length > 0 ? (
             results.map((item) => (
               <button
@@ -150,18 +181,36 @@ export default function GlobalSearchBar() {
                 className="w-full text-left px-4 py-2 hover:bg-clay/30 flex items-center gap-2"
                 onClick={(e) => { e.preventDefault(); handleResultClick(item) }}
               >
-                <span className="font-semibold text-ink/90">{item.title}</span>
-                <span className="text-[11px] px-2 py-0.5 rounded bg-teal/15 text-teal-700">
-                  {item.source === 'group' ? `Group: ${item.groupName}` : 'Learn'}
-                </span>
-                <span className="ml-auto text-xs px-2 py-0.5 rounded bg-clay/40 text-ink/60">
-                  {item.type === 'pdf' ? 'PDF' : item.type === 'youtube' ? 'YouTube' : 'Code'}
-                </span>
+                {item.source === 'message' ? (
+                  <>
+                    <MessageSquare className="w-4 h-4 text-blue-500 shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="font-semibold text-ink/90 text-xs">{item.senderName}</span>
+                        <span className="text-[11px] px-2 py-0.5 rounded bg-blue-100 text-blue-700">
+                          Group: {item.groupName}
+                        </span>
+                        <span className="text-[10px] text-ink/40 ml-auto shrink-0">{formatTime(item.timestamp)}</span>
+                      </div>
+                      <p className="text-xs text-ink/60 truncate mt-0.5">{item.text}</p>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <span className="font-semibold text-ink/90">{item.title}</span>
+                    <span className="text-[11px] px-2 py-0.5 rounded bg-teal/15 text-teal-700">
+                      {item.source === 'group' ? `Group: ${item.groupName}` : 'Learn'}
+                    </span>
+                    <span className="ml-auto text-xs px-2 py-0.5 rounded bg-clay/40 text-ink/60">
+                      {item.type === 'pdf' ? 'PDF' : item.type === 'youtube' ? 'YouTube' : 'Code'}
+                    </span>
+                  </>
+                )}
               </button>
             ))
           ) : (
             <div className="px-4 py-2 text-xs text-ink/60">
-              {loading ? 'Searching...' : (!isAuthenticated() ? 'Login to search your saved materials' : (query.trim() ? 'No saved materials found' : 'Start searching'))}
+              {loading ? 'Searching...' : (!isAuthenticated() ? 'Login to search your saved materials' : (query.trim() ? 'No results found' : 'Start searching'))}
             </div>
           )}
         </div>
