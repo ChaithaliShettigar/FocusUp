@@ -1,7 +1,6 @@
 import { create } from 'zustand'
 import { getUserFromStorage, isAuthenticated as checkAuth, notificationAPI } from '../services/api'
 import { socketService } from '../services/socket'
-import { toast } from 'react-hot-toast'
 
 // Lightweight id helper
 const makeId = () => crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2, 9)
@@ -400,11 +399,6 @@ export const useFocusStore = create((set, get) => ({
     // Listen for deadline reminders globally
     socketService.onDeadlineReminder((data) => {
       get().pushNotification(`⏰ ${data.title} — ${data.timeLeft} remaining in ${data.groupName}!`, 'deadline')
-      toast(`⏰ Reminder: ${data.title} — ${data.timeLeft} remaining in ${data.groupName}!`, {
-        icon: '🔔',
-        duration: 8000,
-        position: 'top-right',
-      })
     })
 
     // Listen for new deadlines

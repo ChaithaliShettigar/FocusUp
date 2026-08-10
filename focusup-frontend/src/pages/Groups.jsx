@@ -170,12 +170,7 @@ export const Groups = () => {
     }
 
     const handleDeadlineReminder = (data) => {
-      if (data.groupId === selectedGroup._id) {
-        toast(`⏰ Reminder: ${data.title} - ${data.timeLeft} remaining!`, {
-          icon: '🔔',
-          duration: 8000,
-        })
-      }
+      // Toast is handled by global listener in useFocusStore
     }
 
     socketService.onDeadlineCreated(handleDeadlineCreated)
@@ -457,7 +452,6 @@ export const Groups = () => {
         reminderInterval,
       })
       if (res.success) {
-        setDeadlines(prev => [...prev, res.deadline])
         setDeadlineTitle('')
         setDeadlineMessage('')
         setDeadlineType('assignment')

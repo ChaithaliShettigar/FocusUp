@@ -1,15 +1,18 @@
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import { toast } from 'react-hot-toast'
 import { useFocusStore } from '../store/useFocusStore'
 
 export const useRealtimeNotifications = () => {
-  const { notifications } = useFocusStore()
+  const notifications = useFocusStore((s) => s.notifications)
+  const prevCountRef = useRef(notifications.length)
 
   useEffect(() => {
-    if (notifications.length > 0) {
+    const prevCount = prevCountRef.current
+    prevCountRef.current = notifications.length
+
+    if (notifications.length > prevCount) {
       const latestNotification = notifications[notifications.length - 1]
       
-      // Show toast notification
       toast.success(latestNotification.message, {
         duration: 4000,
         position: 'top-right',
