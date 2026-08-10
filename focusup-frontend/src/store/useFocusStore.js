@@ -1,10 +1,26 @@
 import { create } from 'zustand'
-import { getUserFromStorage, isAuthenticated as checkAuth } from '../services/api'
+import { getUserFromStorage, isAuthenticated as checkAuth, notificationAPI } from '../services/api'
 import { socketService } from '../services/socket'
 import { toast } from 'react-hot-toast'
 
 // Lightweight id helper
 const makeId = () => crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2, 9)
+
+// Load/save notifications to localStorage for persistence across refreshes
+const loadNotifications = () => {
+  try {
+    const data = localStorage.getItem('notifications')
+    return data ? JSON.parse(data) : []
+  } catch {
+    return []
+  }
+}
+
+const saveNotifications = (notifications) => {
+  try {
+    localStorage.setItem('notifications', JSON.stringify(notifications.slice(-50)))
+  } catch {}
+}
 
 // Load/save active session to localStorage for persistence
 const loadActiveSession = () => {
@@ -72,13 +88,14 @@ export const useFocusStore = create((set, get) => ({
   contents: [], // uploads and links
   groups: [], // created or joined groups
   sessions: [], // focus sessions
-  notifications: [],
+  notifications: loadNotifications(),
   tabSwitches: 0,
   focusPreferences: loadFocusPreferences(),
   currentSessionId: loadActiveSession()?.sessionId || null,
   activeContentId: loadActiveSession()?.contentId || null, // Content being studied
   onlineUsers: [], // Track online users across tabs/browsers
   realtimeGroups: [], // Track real-time group updates
+  _listenersSetup: false,
 
   setLanguage: (lng) => set({ language: lng }),
   setUser: (payload) => {
@@ -101,8 +118,14 @@ export const useFocusStore = create((set, get) => ({
         focusScore: get().focusScore
       })
       
-      // Set up real-time event listeners
-      get().setupRealtimeListeners()
+      // Set up real-time event listeners (only once)
+      if (!get()._listenersSetup) {
+        get().setupRealtimeListeners()
+        set({ _listenersSetup: true })
+      }
+
+      // Fetch notifications from server (syncs all browsers)
+      get().fetchNotifications()
     } else {
       // Disconnect socket when logged out
       socketService.disconnect()
@@ -114,6 +137,7 @@ export const useFocusStore = create((set, get) => ({
         sessions: [],
         currentSessionId: null,
         activeContentId: null,
+        _listenersSetup: false,
       })
     }
   },
@@ -252,20 +276,50 @@ export const useFocusStore = create((set, get) => ({
     set({ focusPreferences: defaultFocusPreferences })
   },
 
-  pushNotification: (message, type = 'info') =>
-    set({
-      notifications: [
-        ...get().notifications.slice(-49),
-        { id: makeId(), message, type, read: false, timestamp: Date.now() },
-      ],
-    }),
+  pushNotification: (message, type = 'info') => {
+    const next = [
+      ...get().notifications.slice(-49),
+      { id: makeId(), message, type, read: false, timestamp: Date.now() },
+    ]
+    saveNotifications(next)
+    set({ notifications: next })
+  },
 
-  markNotificationsRead: () =>
-    set({
-      notifications: get().notifications.map((n) => ({ ...n, read: true })),
-    }),
+  fetchNotifications: async () => {
+    try {
+      const res = await notificationAPI.getNotifications()
+      if (res.success && res.notifications) {
+        const mapped = res.notifications.map((n) => ({
+          id: n._id,
+          message: n.message,
+          type: n.type,
+          read: n.read,
+          timestamp: new Date(n.createdAt).getTime(),
+        }))
+        saveNotifications(mapped)
+        set({ notifications: mapped })
+      }
+    } catch {
+      // Keep using localStorage cache if server fails
+    }
+  },
 
-  clearNotifications: () => set({ notifications: [] }),
+  markNotificationsRead: async () => {
+    const next = get().notifications.map((n) => ({ ...n, read: true }))
+    saveNotifications(next)
+    set({ notifications: next })
+    try {
+      await notificationAPI.markAllRead()
+    } catch {}
+  },
+
+  clearNotifications: async () => {
+    saveNotifications([])
+    set({ notifications: [] })
+    try {
+      await notificationAPI.clearAll()
+    } catch {}
+  },
 
   unreadCount: () => get().notifications.filter((n) => !n.read).length,
 

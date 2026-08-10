@@ -12,6 +12,13 @@ class SocketService {
       return this.socket
     }
 
+    // Clean up any stale socket before creating a new one
+    if (this.socket) {
+      this.socket.removeAllListeners()
+      this.socket.disconnect()
+      this.socket = null
+    }
+
     const socketBase = import.meta.env.VITE_SOCKET_URL || (import.meta.env.VITE_API_URL ? import.meta.env.VITE_API_URL.replace(/\/api\/?$/, '') : 'http://localhost:5010')
 
     this.socket = io(socketBase, {
@@ -19,13 +26,16 @@ class SocketService {
       autoConnect: true,
     })
 
+    // Store userData for reconnection
+    this._userData = userData
+
     this.socket.on('connect', () => {
       console.log('🔌 Connected to server')
       this.isConnected = true
       
-      // Authenticate user
-      if (userData) {
-        this.socket.emit('authenticate', userData)
+      // Authenticate user on every connect (including reconnection)
+      if (this._userData) {
+        this.socket.emit('authenticate', this._userData)
       }
     })
 
@@ -44,9 +54,11 @@ class SocketService {
 
   disconnect() {
     if (this.socket) {
+      this.socket.removeAllListeners()
       this.socket.disconnect()
       this.socket = null
       this.isConnected = false
+      this._userData = null
       this.listeners.clear()
     }
   }

@@ -400,6 +400,26 @@ export const contentAPI = {
   },
 }
 
+// ============ NOTIFICATION API ============
+
+export const notificationAPI = {
+  getNotifications: async () => {
+    return await apiRequest('/notifications')
+  },
+
+  markAllRead: async () => {
+    return await apiRequest('/notifications/read', {
+      method: 'PUT',
+    })
+  },
+
+  clearAll: async () => {
+    return await apiRequest('/notifications/clear', {
+      method: 'DELETE',
+    })
+  },
+}
+
 // ============ HELPER FUNCTIONS ============
 
 export const isAuthenticated = () => {

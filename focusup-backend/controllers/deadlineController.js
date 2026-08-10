@@ -1,5 +1,6 @@
 import Deadline from '../models/Deadline.js'
 import Group from '../models/Group.js'
+import { createNotification } from './notificationController.js'
 
 // Create a deadline
 export const createDeadline = async (req, res) => {
@@ -43,6 +44,21 @@ export const createDeadline = async (req, res) => {
         deadline: newDeadline,
         postedBy: req.user.username,
       })
+
+      // Save notification for each group member
+      const group = await Group.findById(groupId)
+      if (group) {
+        for (const member of group.members) {
+          if (member.userId.toString() !== req.user.id) {
+            await createNotification(
+              member.userId,
+              `New deadline "${title}" posted by ${req.user.username}`,
+              'deadline',
+              { deadlineId: newDeadline._id, groupId }
+            )
+          }
+        }
+      }
     }
 
     res.status(201).json({ success: true, deadline: newDeadline })
@@ -208,6 +224,18 @@ export const markDeadlineCompleted = async (req, res) => {
         deadline,
         completedBy: req.user.username,
       })
+
+      // Save notification for group members
+      for (const member of group.members) {
+        if (member.userId.toString() !== req.user.id) {
+          await createNotification(
+            member.userId,
+            `${req.user.username} completed "${deadline.title}"`,
+            'deadline',
+            { deadlineId: deadline._id, groupId }
+          )
+        }
+      }
     }
 
     res.status(200).json({ success: true, deadline })
@@ -269,7 +297,7 @@ export const checkDeadlinesForReminders = async (io) => {
         !dl.lastReminderSentAt ||
         now.getTime() - dl.lastReminderSentAt.getTime() >= reminderMs
 
-      if (shouldSendReminder && timeUntilDeadline <= reminderMs * 10) {
+      if (shouldSendReminder) {
         const minutesLeft = Math.round(timeUntilDeadline / 60000)
         const hoursLeft = Math.round(timeUntilDeadline / 3600000 * 10) / 10
 
@@ -288,6 +316,14 @@ export const checkDeadlinesForReminders = async (io) => {
         console.log(`⏰ Sending reminder for "${dl.title}" to ${memberIds.length} members (${timeLabel} left)`)
 
         for (const memberId of memberIds) {
+          // Save notification to database so all browsers can fetch it
+          await createNotification(
+            memberId,
+            `⏰ ${dl.title} — ${timeLabel} remaining in ${group.name}!`,
+            'deadline',
+            { deadlineId: dl._id, groupId: dl.groupId, groupName: group.name }
+          )
+
           if (io) {
             io.to(`user_${memberId}`).emit('deadlineReminder', {
               deadlineId: dl._id,

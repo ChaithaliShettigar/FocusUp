@@ -25,6 +25,7 @@ import analyticsRoutes from './routes/analytics.js'
 import profileRoutes from './routes/profile.js'
 import aiRoutes from './routes/ai.js'
 import deadlineRoutes from './routes/deadlines.js'
+import notificationRoutes from './routes/notifications.js'
 import { checkDeadlinesForReminders } from './controllers/deadlineController.js'
 
 const app = express()
@@ -79,6 +80,7 @@ app.use('/api/analytics', analyticsRoutes)
 app.use('/api/profile', profileRoutes)
 app.use('/api/ai', aiRoutes)
 app.use('/api/groups', deadlineRoutes)
+app.use('/api/notifications', notificationRoutes)
 
 // Error handling middleware
 app.use(errorHandler)
