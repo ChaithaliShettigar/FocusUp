@@ -120,6 +120,10 @@ export const useFocusStore = create((set, get) => ({
       // Set up real-time event listeners (only once)
       if (!get()._listenersSetup) {
         get().setupRealtimeListeners()
+        // Re-fetch notifications when socket reconnects after disconnection
+        socketService.onReconnect(() => {
+          get().fetchNotifications()
+        })
         set({ _listenersSetup: true })
       }
 

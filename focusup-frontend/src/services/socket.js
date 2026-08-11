@@ -5,6 +5,7 @@ class SocketService {
     this.socket = null
     this.isConnected = false
     this.listeners = new Map()
+    this._reconnectCallbacks = []
   }
 
   connect(userData) {
@@ -37,6 +38,12 @@ class SocketService {
       if (this._userData) {
         this.socket.emit('authenticate', this._userData)
       }
+
+      // Notify reconnection callbacks (skip on first connect)
+      if (this._wasConnected) {
+        this._reconnectCallbacks.forEach(cb => cb())
+      }
+      this._wasConnected = true
     })
 
     this.socket.on('disconnect', () => {
@@ -58,6 +65,7 @@ class SocketService {
       this.socket.disconnect()
       this.socket = null
       this.isConnected = false
+      this._wasConnected = false
       this._userData = null
       this.listeners.clear()
     }
@@ -182,6 +190,11 @@ class SocketService {
       })
       this.listeners.delete(event)
     }
+  }
+
+  // Reconnection callback registration
+  onReconnect(callback) {
+    this._reconnectCallbacks.push(callback)
   }
 }
 

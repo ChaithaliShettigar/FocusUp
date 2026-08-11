@@ -13,6 +13,7 @@ export const useFocusTracking = (
 ) => {
   const logActivity = useFocusStore((s) => s.logActivity)
   const addTabSwitch = useFocusStore((s) => s.addTabSwitch)
+  const fetchNotifications = useFocusStore((s) => s.fetchNotifications)
   const interventionSwitchCountRef = useRef(0)
   const onThirdTabSwitchRef = useRef(onThirdTabSwitch)
 
@@ -36,6 +37,13 @@ export const useFocusTracking = (
       const idle = now - lastActive > idleThreshold
       logActivity(sessionId, { type: idle ? 'idle' : 'active', delta })
     }, 1000)
+
+    // Periodic re-fetch to catch any missed notifications (every 60s)
+    const notificationSync = setInterval(() => {
+      if (!document.hidden) {
+        fetchNotifications()
+      }
+    }, 60000)
 
     const handleVisibility = () => {
       if (document.hidden) {
@@ -62,6 +70,8 @@ export const useFocusTracking = (
         }
       } else {
         lastActive = Date.now()
+        // Re-fetch missed notifications when returning to the tab
+        fetchNotifications()
       }
     }
 
@@ -71,6 +81,7 @@ export const useFocusTracking = (
 
     return () => {
       clearInterval(tick)
+      clearInterval(notificationSync)
       events.forEach((evt) => window.removeEventListener(evt, markActive))
       document.removeEventListener('visibilitychange', handleVisibility)
     }
@@ -78,6 +89,7 @@ export const useFocusTracking = (
     sessionId,
     logActivity,
     addTabSwitch,
+    fetchNotifications,
     interventionEnabled,
     interventionStudyOnly,
     isStudyContext,
