@@ -47,6 +47,8 @@ export const Groups = () => {
 
   // Search
   const [searchQuery, setSearchQuery] = useState('')
+  const [locatedResourceId, setLocatedResourceId] = useState(null)
+  const [locatedMessageTimestamp, setLocatedMessageTimestamp] = useState(null)
 
   // Deadlines
   const [deadlines, setDeadlines] = useState([])
@@ -83,6 +85,26 @@ export const Groups = () => {
       if (g) {
         setSelectedGroup(g)
         setChatMessages(g.chatMessages || [])
+        // Switch to correct tab
+        if (location.state?.openTab) {
+          setActiveTab(location.state.openTab)
+        }
+        // Locate resource
+        if (location.state?.openResourceId) {
+          setLocatedResourceId(location.state.openResourceId)
+          setTimeout(() => {
+            const el = document.getElementById(`group-resource-${location.state.openResourceId}`)
+            if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+          }, 100)
+        }
+        // Locate message
+        if (location.state?.openMessageTimestamp) {
+          setLocatedMessageTimestamp(location.state.openMessageTimestamp)
+          setTimeout(() => {
+            const el = document.getElementById(`group-message-${location.state.openMessageTimestamp}`)
+            if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+          }, 100)
+        }
       }
       navigate('/groups', { replace: true, state: {} })
     }
@@ -746,9 +768,10 @@ export const Groups = () => {
                     <div className="space-y-2">
                       {selectedGroup.resources.map((r) => {
                         const isViewing = viewingResource?.id === r.id && currentSessionId
+                        const isLocated = locatedResourceId === r.id
                         return (
-                          <div key={r.id} className={`flex items-center gap-3 p-3 rounded-2xl bg-white border transition-all ${
-                            isViewing ? 'border-teal ring-2 ring-teal/20' : 'border-ink/10 hover:shadow-sm'
+                          <div id={`group-resource-${r.id}`} key={r.id} className={`flex items-center gap-3 p-3 rounded-2xl bg-white border transition-all ${
+                            isLocated ? 'border-yellow-400 ring-2 ring-yellow-200 shadow-md' : isViewing ? 'border-teal ring-2 ring-teal/20' : 'border-ink/10 hover:shadow-sm'
                           }`}>
                             <div className="p-2 rounded-xl bg-clay/50 shrink-0">
                               {getResourceIcon(r.type)}
@@ -756,6 +779,9 @@ export const Groups = () => {
                             <div className="flex-1 min-w-0">
                               <p className="text-sm font-semibold text-ink truncate">{r.title}</p>
                               <p className="text-xs text-ink/50 capitalize">{r.type}</p>
+                              {isLocated && (
+                                <p className="mt-1 text-[11px] font-semibold text-yellow-600">Located from search</p>
+                              )}
                             </div>
                             <div className="flex items-center gap-2 shrink-0">
                               <div className="flex items-center gap-1">
@@ -1067,14 +1093,20 @@ export const Groups = () => {
                     ) : (
                       chatMessages.map((msg, i) => {
                         const isMine = msg.senderId === (user._id || user.id)
+                        const isLocated = locatedMessageTimestamp === msg.timestamp
                         return (
-                          <div key={i} className={`flex flex-col max-w-[75%] ${isMine ? 'ml-auto items-end' : 'items-start'}`}>
+                          <div id={`group-message-${msg.timestamp}`} key={i} className={`flex flex-col max-w-[75%] ${isMine ? 'ml-auto items-end' : 'items-start'}`}>
                             <span className="text-[10px] text-ink/40 mb-0.5 px-1">{msg.senderName}</span>
                             <div className={`px-3 py-2 rounded-2xl text-sm ${
-                              isMine ? 'bg-teal/20 text-ink rounded-br-sm' : 'bg-white border border-ink/10 text-ink rounded-bl-sm'
+                              isLocated
+                                ? 'bg-yellow-100 border-2 border-yellow-400 text-ink shadow-md'
+                                : isMine ? 'bg-teal/20 text-ink rounded-br-sm' : 'bg-white border border-ink/10 text-ink rounded-bl-sm'
                             }`}>
                               {msg.text}
                             </div>
+                            {isLocated && (
+                              <span className="text-[10px] font-semibold text-yellow-600 mt-0.5 px-1">Located from search</span>
+                            )}
                             <span className="text-[10px] text-ink/30 mt-0.5 px-1">
                               {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                             </span>

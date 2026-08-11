@@ -132,6 +132,8 @@ export default function GlobalSearchBar() {
         state: {
           openGroupId: item.groupId,
           openResourceId: item.resourceId || null,
+          openMessageTimestamp: item.timestamp || null,
+          openTab: item.source === 'message' ? 'chat' : 'materials',
           locateOnly: true,
         },
       })
@@ -188,7 +190,7 @@ export default function GlobalSearchBar() {
                       <div className="flex items-center gap-2">
                         <span className="font-semibold text-ink/90 text-xs">{item.senderName}</span>
                         <span className="text-[11px] px-2 py-0.5 rounded bg-blue-100 text-blue-700">
-                          Group: {item.groupName}
+                          {item.groupName} › Chat
                         </span>
                         <span className="text-[10px] text-ink/40 ml-auto shrink-0">{formatTime(item.timestamp)}</span>
                       </div>
@@ -199,7 +201,7 @@ export default function GlobalSearchBar() {
                   <>
                     <span className="font-semibold text-ink/90">{item.title}</span>
                     <span className="text-[11px] px-2 py-0.5 rounded bg-teal/15 text-teal-700">
-                      {item.source === 'group' ? `Group: ${item.groupName}` : 'Learn'}
+                      {item.source === 'group' ? `${item.groupName} › Resources` : 'Learn'}
                     </span>
                     <span className="ml-auto text-xs px-2 py-0.5 rounded bg-clay/40 text-ink/60">
                       {item.type === 'pdf' ? 'PDF' : item.type === 'youtube' ? 'YouTube' : 'Code'}
