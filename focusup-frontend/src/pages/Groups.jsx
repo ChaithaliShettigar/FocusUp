@@ -120,25 +120,9 @@ export const Groups = () => {
   useEffect(() => {
     if (!selectedGroup) return
 
-    // Load messages from server group data first, then overlay with localStorage
+    // Load messages from server group data (MongoDB is source of truth)
     const serverMessages = selectedGroup.chatMessages || []
-    try {
-      const saved = localStorage.getItem(`chat_${selectedGroup._id}`)
-      const localMessages = saved ? JSON.parse(saved) : []
-      // Merge: use server messages as base, add any local-only messages
-      const merged = [...serverMessages]
-      localMessages.forEach(lm => {
-        const isDup = merged.some(
-          sm => sm.senderId === lm.senderId && sm.text === lm.text &&
-               Math.abs(new Date(sm.timestamp) - new Date(lm.timestamp)) < 2000
-        )
-        if (!isDup) merged.push(lm)
-      })
-      merged.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp))
-      setChatMessages(merged)
-    } catch {
-      setChatMessages(serverMessages)
-    }
+    setChatMessages(serverMessages)
 
     const handleMsg = (data) => {
       if (data.groupId === selectedGroup._id) {
@@ -157,15 +141,6 @@ export const Groups = () => {
     socketService.onGroupMessageReceived(handleMsg)
     return () => { socketService.off('groupMessageReceived', handleMsg) }
   }, [selectedGroup])
-
-  // Persist messages to localStorage
-  useEffect(() => {
-    if (selectedGroup && chatMessages.length > 0) {
-      try {
-        localStorage.setItem(`chat_${selectedGroup._id}`, JSON.stringify(chatMessages))
-      } catch {}
-    }
-  }, [chatMessages, selectedGroup])
 
   // Deadline socket listeners
   useEffect(() => {
@@ -351,10 +326,10 @@ export const Groups = () => {
     } catch { toast.error('Failed') } finally { setLoading(false) }
   }
 
-  const handleStartFocus = (resource) => {
+  const handleStartFocus = async (resource) => {
     const mins = materialTargets[resource.id] || targetMinutes || 25
     if (mins < 1) return toast.error('Set target time')
-    const sid = startSession({
+    const sid = await startSession({
       contentId: resource.id, contentType: resource.type,
       targetMinutes: mins, groupId: selectedGroup._id
     })
@@ -364,9 +339,9 @@ export const Groups = () => {
     toast.success(`Focus started for ${mins} min!`)
   }
 
-  const handleEndFocus = () => {
+  const handleEndFocus = async () => {
     if (currentSessionId) {
-      endSession(currentSessionId, 'completed')
+      await endSession(currentSessionId, 'completed')
       toast.success('Session completed!')
     }
     setViewingResource(null)

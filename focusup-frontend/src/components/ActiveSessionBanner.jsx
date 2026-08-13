@@ -21,22 +21,19 @@ export const ActiveSessionBanner = () => {
   const isOnLearnPage = location.pathname === '/learn'
   
   useEffect(() => {
-    if (!activeContentId) return
+    if (!activeContentId || !activeSession) return
     
-    const savedSession = localStorage.getItem('activeSession')
-    if (savedSession) {
-      try {
-        const { startedAt } = JSON.parse(savedSession)
-        const updateTimer = () => {
-          const elapsed = Math.floor((Date.now() - startedAt) / 1000)
-          setElapsedTime(elapsed)
-        }
-        updateTimer()
-        const interval = setInterval(updateTimer, 1000)
-        return () => clearInterval(interval)
-      } catch {}
+    const startedAt = activeSession.startedAt
+    if (!startedAt) return
+    
+    const updateTimer = () => {
+      const elapsed = Math.floor((Date.now() - startedAt) / 1000)
+      setElapsedTime(elapsed)
     }
-  }, [activeContentId])
+    updateTimer()
+    const interval = setInterval(updateTimer, 1000)
+    return () => clearInterval(interval)
+  }, [activeContentId, activeSession])
 
   const formatTime = (seconds) => {
     const mins = Math.floor(seconds / 60)

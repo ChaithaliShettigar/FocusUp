@@ -400,6 +400,51 @@ export const contentAPI = {
   },
 }
 
+// ============ SESSION API ============
+
+export const sessionAPI = {
+  getSessions: async () => {
+    return await apiRequest('/sessions', { method: 'GET' })
+  },
+
+  createSession: async (sessionData) => {
+    return await apiRequest('/sessions', {
+      method: 'POST',
+      body: JSON.stringify(sessionData),
+    })
+  },
+
+  updateSession: async (sessionId, updates) => {
+    return await apiRequest(`/sessions/${sessionId}`, {
+      method: 'PUT',
+      body: JSON.stringify(updates),
+    })
+  },
+
+  endSession: async (sessionId, sessionData) => {
+    return await apiRequest(`/sessions/${sessionId}/end`, {
+      method: 'PUT',
+      body: JSON.stringify(sessionData),
+    })
+  },
+
+  deleteSession: async (sessionId) => {
+    return await apiRequest(`/sessions/${sessionId}`, { method: 'DELETE' })
+  },
+}
+
+// ============ ANALYTICS API ============
+
+export const analyticsAPI = {
+  getAnalytics: async (days = 30) => {
+    return await apiRequest(`/analytics?days=${days}`, { method: 'GET' })
+  },
+
+  getDailyAnalytics: async () => {
+    return await apiRequest('/analytics/daily', { method: 'GET' })
+  },
+}
+
 // ============ NOTIFICATION API ============
 
 export const notificationAPI = {

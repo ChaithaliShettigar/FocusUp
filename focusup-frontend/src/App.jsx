@@ -87,10 +87,10 @@ function App() {
     toast.success('Keep going! You\'re doing great.')
   }, [currentSessionId, updateSession])
 
-  const handleEndSessionFromModal = useCallback(() => {
+  const handleEndSessionFromModal = useCallback(async () => {
     if (!currentSessionId) return
     setShowTargetReached(false)
-    endSession(currentSessionId, 'completed')
+    await endSession(currentSessionId, 'completed')
     updateFocusScoreRealtime()
     toast.success('Session completed! Focus score updated.')
   }, [currentSessionId, endSession, updateFocusScoreRealtime])

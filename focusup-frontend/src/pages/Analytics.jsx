@@ -1,36 +1,76 @@
+import { useState, useEffect } from 'react'
 import { DoodleBackground } from '../components/DoodleBackground'
 import { useFocusStore } from '../store/useFocusStore'
+import { analyticsAPI } from '../services/api'
 import { Bar, BarChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis, LineChart, Line, PieChart, Pie, Cell } from 'recharts'
 import { FocusScoreBadge } from '../components/FocusScoreBadge'
 import { Target, Activity, BarChart2 } from 'lucide-react'
 
 export const Analytics = () => {
-  const sessions = useFocusStore((s) => s.sessions)
   const user = useFocusStore((s) => s.user)
+  const [analyticsData, setAnalyticsData] = useState(null)
+  const [dailyData, setDailyData] = useState([])
+  const [loading, setLoading] = useState(true)
 
+  // Fetch analytics from backend (MongoDB is source of truth)
+  useEffect(() => {
+    const fetchAnalytics = async () => {
+      setLoading(true)
+      try {
+        const [analyticsRes, dailyRes] = await Promise.all([
+          analyticsAPI.getAnalytics(30),
+          analyticsAPI.getDailyAnalytics(),
+        ])
+        if (analyticsRes.success && analyticsRes.analytics) {
+          setAnalyticsData(analyticsRes.analytics)
+        }
+        if (dailyRes.success && dailyRes.data) {
+          setDailyData(dailyRes.data)
+        }
+      } catch (err) {
+        console.error('Failed to fetch analytics:', err)
+      } finally {
+        setLoading(false)
+      }
+    }
+    fetchAnalytics()
+  }, [])
+
+  // Build chart data from backend analytics
+  const sessions = analyticsData?.sessions || []
   const chartData = sessions.map((s, idx) => ({
-    name: `S${idx + 1}`,
-    planned: s.targetMinutes,
-    actual: Math.round(s.elapsedSeconds / 60),
-    active: Math.round(s.activeSeconds / 60),
-    idle: Math.round(s.idleSeconds / 60),
-    tabSwitches: s.tabSwitches,
+    name: s.subject || `S${idx + 1}`,
+    planned: s.duration || 0,
+    actual: s.duration || 0,
+    active: s.duration || 0,
+    idle: 0,
+    tabSwitches: 0,
   }))
 
-  const totalPlanned = chartData.reduce((sum, d) => sum + d.planned, 0)
-  const totalActual = chartData.reduce((sum, d) => sum + d.actual, 0)
-  const totalActive = chartData.reduce((sum, d) => sum + d.active, 0)
-  const totalIdle = chartData.reduce((sum, d) => sum + d.idle, 0)
+  const totalPlanned = analyticsData?.totalFocusTime || 0
+  const totalActual = analyticsData?.totalFocusTime || 0
+  const totalActive = analyticsData?.totalFocusTime || 0
+  const totalIdle = 0
 
   const activityData = [
     { name: 'Active Study', value: totalActive, fill: '#1f2933' },
     { name: 'Idle Time', value: totalIdle, fill: '#8bd3dd' },
   ]
 
-  const focusPatternData = chartData.map((d) => ({
-    session: d.name,
-    focusRatio: d.idle > 0 ? Math.round((d.active / (d.active + d.idle)) * 100) : 100,
+  const focusPatternData = sessions.map((s, idx) => ({
+    session: s.subject || `S${idx + 1}`,
+    focusRatio: s.focusScore || 0,
   }))
+
+  if (loading) {
+    return (
+      <DoodleBackground>
+        <div className="flex items-center justify-center h-[60vh]">
+          <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-teal" />
+        </div>
+      </DoodleBackground>
+    )
+  }
 
   return (
     <DoodleBackground>
@@ -69,7 +109,7 @@ export const Analytics = () => {
           />
           <Metric 
             title="Sessions logged" 
-            value={sessions.length} 
+            value={analyticsData?.totalSessions || 0} 
             hint="More sessions yield deeper insights" 
             icon={BarChart2}
             iconBg="bg-purple-500/10"

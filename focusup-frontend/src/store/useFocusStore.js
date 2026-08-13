@@ -1,45 +1,9 @@
 import { create } from 'zustand'
-import { getUserFromStorage, isAuthenticated as checkAuth, notificationAPI } from '../services/api'
+import { getUserFromStorage, isAuthenticated as checkAuth, notificationAPI, profileAPI, sessionAPI } from '../services/api'
 import { socketService } from '../services/socket'
 
 // Lightweight id helper
 const makeId = () => crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2, 9)
-
-// Load/save notifications to localStorage for persistence across refreshes
-const loadNotifications = () => {
-  try {
-    const data = localStorage.getItem('notifications')
-    return data ? JSON.parse(data) : []
-  } catch {
-    return []
-  }
-}
-
-const saveNotifications = (notifications) => {
-  try {
-    localStorage.setItem('notifications', JSON.stringify(notifications.slice(-50)))
-  } catch {}
-}
-
-// Load/save active session to localStorage for persistence
-const loadActiveSession = () => {
-  try {
-    const data = localStorage.getItem('activeSession')
-    return data ? JSON.parse(data) : null
-  } catch {
-    return null
-  }
-}
-
-const saveActiveSession = (session) => {
-  try {
-    if (session) {
-      localStorage.setItem('activeSession', JSON.stringify(session))
-    } else {
-      localStorage.removeItem('activeSession')
-    }
-  } catch {}
-}
 
 const defaultFocusPreferences = {
   tabSwitchInterventionEnabled: true,
@@ -87,11 +51,11 @@ export const useFocusStore = create((set, get) => ({
   contents: [], // uploads and links
   groups: [], // created or joined groups
   sessions: [], // focus sessions
-  notifications: loadNotifications(),
+  notifications: [], // loaded from backend
   tabSwitches: 0,
   focusPreferences: loadFocusPreferences(),
-  currentSessionId: loadActiveSession()?.sessionId || null,
-  activeContentId: loadActiveSession()?.contentId || null, // Content being studied
+  currentSessionId: null,
+  activeContentId: null,
   onlineUsers: [], // Track online users across tabs/browsers
   realtimeGroups: [], // Track real-time group updates
   _listenersSetup: false,
@@ -99,7 +63,7 @@ export const useFocusStore = create((set, get) => ({
   setLanguage: (lng) => set({ language: lng }),
   setUser: (payload) => {
     const updatedUser = { ...get().user, ...payload }
-    // Update localStorage when user changes
+    // Update localStorage when user changes (for auth token flow)
     if (Object.keys(payload).length > 0) {
       localStorage.setItem('user', JSON.stringify(updatedUser))
     }
@@ -127,7 +91,9 @@ export const useFocusStore = create((set, get) => ({
         set({ _listenersSetup: true })
       }
 
-      // Fetch notifications from server (syncs all browsers)
+      // Fetch all data from backend (source of truth = MongoDB)
+      get().fetchUserData()
+      get().fetchSessions()
       get().fetchNotifications()
     } else {
       // Disconnect socket when logged out
@@ -138,6 +104,7 @@ export const useFocusStore = create((set, get) => ({
         contents: [],
         groups: [],
         sessions: [],
+        notifications: [],
         currentSessionId: null,
         activeContentId: null,
         _listenersSetup: false,
@@ -190,7 +157,7 @@ export const useFocusStore = create((set, get) => ({
       ),
     }),
 
-  startSession: ({ contentId, targetMinutes, contentType, resourceType, groupId }) => {
+  startSession: async ({ contentId, targetMinutes, contentType, resourceType, groupId }) => {
     const matchedContent = get().contents.find((c) => c.id === contentId)
     const resolvedContentType = contentType || resourceType || matchedContent?.type || null
 
@@ -208,9 +175,30 @@ export const useFocusStore = create((set, get) => ({
       targetReached: false,
       ...(groupId ? { groupId } : {}),
     }
-    // Save to localStorage for persistence across refresh/navigation
-    saveActiveSession({ sessionId: session.id, contentId, targetMinutes, startedAt: session.startedAt })
+
     set({ sessions: [...get().sessions, session], currentSessionId: session.id, activeContentId: contentId })
+
+    // Persist to MongoDB in the background
+    try {
+      const res = await sessionAPI.createSession({
+        contentId,
+        subject: matchedContent?.title || 'General',
+        targetMinutes,
+      })
+      if (res.success && res.session) {
+        // Update the local session with the backend ID
+        set({
+          sessions: get().sessions.map(s =>
+            s.id === session.id ? { ...s, backendId: res.session._id, id: res.session._id } : s
+          ),
+          currentSessionId: res.session._id,
+        })
+        session.id = res.session._id
+      }
+    } catch (err) {
+      console.error('Failed to persist session to backend:', err)
+    }
+
     return session.id
   },
 
@@ -219,7 +207,7 @@ export const useFocusStore = create((set, get) => ({
       sessions: get().sessions.map((s) => (s.id === sessionId ? { ...s, ...updates } : s)),
     }),
 
-  endSession: (sessionId, status = 'completed') => {
+  endSession: async (sessionId, status = 'completed') => {
     const sessions = get().sessions.map((s) => (s.id === sessionId ? { ...s, status } : s))
     const finished = sessions.find((s) => s.id === sessionId)
     let scoreDelta = 0
@@ -229,8 +217,7 @@ export const useFocusStore = create((set, get) => ({
       const distractionPenalty = finished.tabSwitches * 2 + finished.idleSeconds / 30
       scoreDelta = Math.max(0, Math.round(100 * completion * activityRatio - distractionPenalty))
     }
-    // Clear persisted session when ending
-    saveActiveSession(null)
+
     set({
       sessions,
       focusScore: Math.max(0, get().focusScore + scoreDelta),
@@ -238,6 +225,20 @@ export const useFocusStore = create((set, get) => ({
       currentSessionId: status === 'active' ? sessionId : null,
       activeContentId: status === 'active' ? get().activeContentId : null,
     })
+
+    // Persist session end to MongoDB in the background
+    try {
+      if (finished?.backendId || (finished && sessionId === finished.id && !sessionId.startsWith('local'))) {
+        const backendId = finished?.backendId || sessionId
+        await sessionAPI.endSession(backendId, {
+          status,
+          actualMinutes: Math.round(finished.elapsedSeconds / 60),
+          tabSwitches: finished.tabSwitches,
+        })
+      }
+    } catch (err) {
+      console.error('Failed to persist session end to backend:', err)
+    }
   },
 
   logActivity: (sessionId, { type = 'active', delta = 1 }) => {
@@ -279,13 +280,13 @@ export const useFocusStore = create((set, get) => ({
     set({ focusPreferences: defaultFocusPreferences })
   },
 
-  pushNotification: (message, type = 'info') => {
+  pushNotification: async (message, type = 'info') => {
     const next = [
       ...get().notifications.slice(-49),
       { id: makeId(), message, type, read: false, timestamp: Date.now() },
     ]
-    saveNotifications(next)
     set({ notifications: next })
+    // Notifications are fetched from backend; push is handled via socket/real-time
   },
 
   fetchNotifications: async () => {
@@ -299,17 +300,15 @@ export const useFocusStore = create((set, get) => ({
           read: n.read,
           timestamp: new Date(n.createdAt).getTime(),
         }))
-        saveNotifications(mapped)
         set({ notifications: mapped })
       }
     } catch {
-      // Keep using localStorage cache if server fails
+      // Keep current state if server fails
     }
   },
 
   markNotificationsRead: async () => {
     const next = get().notifications.map((n) => ({ ...n, read: true }))
-    saveNotifications(next)
     set({ notifications: next })
     try {
       await notificationAPI.markAllRead()
@@ -317,7 +316,6 @@ export const useFocusStore = create((set, get) => ({
   },
 
   clearNotifications: async () => {
-    saveNotifications([])
     set({ notifications: [] })
     try {
       await notificationAPI.clearAll()
@@ -325,6 +323,48 @@ export const useFocusStore = create((set, get) => ({
   },
 
   unreadCount: () => get().notifications.filter((n) => !n.read).length,
+
+  // Fetch user data from backend (MongoDB is source of truth)
+  fetchUserData: async () => {
+    try {
+      const res = await profileAPI.getProfile()
+      if (res.success && res.user) {
+        const userData = res.user
+        set({
+          user: userData,
+          focusScore: userData.focusScore || 0,
+          streak: userData.streak || 0,
+        })
+        localStorage.setItem('user', JSON.stringify(userData))
+      }
+    } catch (err) {
+      console.error('Failed to fetch user data from backend:', err)
+    }
+  },
+
+  // Fetch sessions from backend (MongoDB is source of truth)
+  fetchSessions: async () => {
+    try {
+      const res = await sessionAPI.getSessions()
+      if (res.success && res.sessions) {
+        const mappedSessions = res.sessions.map(s => ({
+          id: s._id,
+          backendId: s._id,
+          contentId: s.contentId,
+          targetMinutes: s.targetMinutes,
+          elapsedSeconds: (s.actualMinutes || 0) * 60,
+          activeSeconds: (s.actualMinutes || 0) * 60,
+          idleSeconds: 0,
+          tabSwitches: s.tabSwitches || 0,
+          status: s.status,
+          startedAt: new Date(s.startTime).getTime(),
+        }))
+        set({ sessions: mappedSessions })
+      }
+    } catch (err) {
+      console.error('Failed to fetch sessions from backend:', err)
+    }
+  },
 
   // Real-time functionality
   setupRealtimeListeners: () => {

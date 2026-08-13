@@ -6,104 +6,12 @@ import { DoodleBackground } from '../components/DoodleBackground'
 import { useFocusStore } from '../store/useFocusStore'
 import { contentAPI } from '../services/api'
 
-// IndexedDB helper for storing PDF files locally
-const openPdfDB = () => {
-  return new Promise((resolve, reject) => {
-    const request = indexedDB.open('FocusUpPDFs', 1)
-    request.onerror = () => reject(request.error)
-    request.onsuccess = () => resolve(request.result)
-    request.onupgradeneeded = (e) => {
-      const db = e.target.result
-      if (!db.objectStoreNames.contains('pdfs')) {
-        db.createObjectStore('pdfs', { keyPath: 'id' })
-      }
-    }
-  })
-}
-
-const savePdfToLocal = async (id, file) => {
-  const db = await openPdfDB()
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction('pdfs', 'readwrite')
-    const store = tx.objectStore('pdfs')
-    store.put({ id, file, name: file.name })
-    tx.oncomplete = () => resolve()
-    tx.onerror = () => reject(tx.error)
-  })
-}
-
-const getPdfFromLocal = async (id) => {
-  const db = await openPdfDB()
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction('pdfs', 'readonly')
-    const store = tx.objectStore('pdfs')
-    const request = store.get(id)
-    request.onsuccess = () => resolve(request.result)
-    request.onerror = () => reject(request.error)
-  })
-}
-
-const deletePdfFromLocal = async (id) => {
-  try {
-    const db = await openPdfDB()
-    return new Promise((resolve) => {
-      const tx = db.transaction('pdfs', 'readwrite')
-      const store = tx.objectStore('pdfs')
-      store.delete(id)
-      tx.oncomplete = () => resolve()
-      tx.onerror = () => resolve() // Ignore errors
-    })
-  } catch {
-    // Ignore errors
-  }
-}
-
-// PDF Viewer Component
-const PdfViewer = ({ contentId, title }) => {
-  const [blobUrl, setBlobUrl] = useState('')
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState(false)
-
-  useEffect(() => {
-    let url = ''
-    const loadPdf = async () => {
-      try {
-        const pdfData = await getPdfFromLocal(contentId)
-        if (pdfData && pdfData.file) {
-          url = URL.createObjectURL(pdfData.file)
-          setBlobUrl(url)
-          setError(false)
-        } else {
-          setError(true)
-        }
-      } catch (err) {
-        console.error('Failed to load PDF:', err)
-        setError(true)
-      } finally {
-        setLoading(false)
-      }
-    }
-    
-    loadPdf()
-    
-    return () => {
-      if (url) URL.revokeObjectURL(url)
-    }
-  }, [contentId])
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-[520px] bg-clay/30">
-        <Loader2 className="w-8 h-8 animate-spin text-ink/50" />
-        <span className="ml-2 text-ink/70">Loading PDF...</span>
-      </div>
-    )
-  }
-
-  if (error || !blobUrl) {
+// PDF Viewer Component - loads PDF from server URL
+const PdfViewer = ({ contentUrl, title }) => {
+  if (!contentUrl) {
     return (
       <div className="flex flex-col items-center justify-center h-[520px] bg-clay/30">
-        <p className="text-ink/70 mb-2">PDF not found locally.</p>
+        <p className="text-ink/70 mb-2">PDF not available.</p>
         <p className="text-ink/50 text-sm mb-4">Please re-upload the PDF file.</p>
       </div>
     )
@@ -111,7 +19,7 @@ const PdfViewer = ({ contentId, title }) => {
 
   return (
     <iframe
-      src={blobUrl}
+      src={contentUrl}
       title={title}
       className="h-[520px] w-full border-0"
     />
@@ -254,6 +162,7 @@ export const Learn = () => {
               url: item.url || '',
               notes: item.description || '',
               targetMinutes: item.targetMinutes || 25,
+              filePath: item.filePath || '',
             }
           })
           console.log('Mapped content:', mappedContent)
@@ -296,8 +205,9 @@ export const Learn = () => {
         setPreviewOnlyOpen(previewOnly)
 
         if (!previewOnly) {
-          const id = startSession({ contentId: contentToOpen.id, contentType: contentToOpen.type, targetMinutes: contentToOpen.targetMinutes || 25 })
-          setCurrentSession(id)
+          startSession({ contentId: contentToOpen.id, contentType: contentToOpen.type, targetMinutes: contentToOpen.targetMinutes || 25 }).then(id => {
+            setCurrentSession(id)
+          })
           toast.success(`Opening "${contentToOpen.title}"! Timer started.`)
         } else {
           toast.success(`Opened "${contentToOpen.title}" in preview mode.`)
@@ -347,6 +257,7 @@ export const Learn = () => {
               url: item.url || '',
               notes: item.description || '',
               targetMinutes: item.targetMinutes || 25,
+              filePath: item.filePath || '',
             }
 
             // Add to local list so it shows up in UI
@@ -394,30 +305,22 @@ export const Learn = () => {
     
     setIsLoading(true)
     try {
-      // Save metadata to backend
-      const response = await contentAPI.createContent({
-        title: file.name,
-        type: 'pdf',
-        url: '',
-        description: 'PDF document stored locally',
-        targetMinutes: 25,
-      })
+      // Upload PDF file to server
+      const fd = new FormData()
+      fd.append('file', file)
+      fd.append('title', file.name)
       
-      if (response.success) {
-        const contentId = response.content._id
-        
-        // Save actual PDF file to IndexedDB
-        await savePdfToLocal(contentId, file)
-        
+      const response = await contentAPI.uploadFile(fd)
+      if (response.success && response.content) {
         addContent({ 
-          id: contentId,
+          id: response.content._id,
           title: file.name, 
           type: 'pdf', 
-          url: '',
+          url: response.content.url || '',
           targetMinutes: 25,
         })
         pushNotification(`PDF "${file.name}" added to your materials`, 'material')
-        toast.success('PDF added and saved!')
+        toast.success('PDF uploaded and saved to server!')
       }
     } catch (error) {
       console.error('Failed to save PDF:', error)
@@ -523,7 +426,7 @@ export const Learn = () => {
     }
   }
 
-  const startFocus = (content) => {
+  const startFocus = async (content) => {
     if (!isAuthenticated) {
       toast.error('Sign up or login to start a focus session.')
       return
@@ -533,7 +436,7 @@ export const Learn = () => {
       toast.error('Set a target time to start.')
       return
     }
-    const id = startSession({ contentId: content.id, contentType: content.type, targetMinutes: materialTarget })
+    const id = await startSession({ contentId: content.id, contentType: content.type, targetMinutes: materialTarget })
     setCurrentSession(id)
     setSelectedContent(content)
     setPreviewOnlyOpen(false)
@@ -542,9 +445,9 @@ export const Learn = () => {
     toast.success('Timer started. Stay active to grow your focus score.')
   }
 
-  const stopFocus = () => {
+  const stopFocus = async () => {
     const currentId = useFocusStore.getState().currentSessionId
-    if (currentId) endSession(currentId, 'completed')
+    if (currentId) await endSession(currentId, 'completed')
     setPreviewOnlyOpen(true)
     setSelectedContent(null)
     toast('Session ended. Check analytics for insights.', { icon: '📊' })
@@ -559,11 +462,6 @@ export const Learn = () => {
       // Delete from backend
       if (content.id) {
         await contentAPI.deleteContent(content.id)
-      }
-      
-      // Delete PDF from IndexedDB if it's a PDF
-      if (content.type === 'pdf') {
-        await deletePdfFromLocal(content.id)
       }
       
       // If the item being deleted is currently opened, close it
@@ -647,7 +545,7 @@ export const Learn = () => {
           <div className="group rounded-3xl bg-white/80 hover:bg-white/95 p-8 shadow-soft hover:shadow-xl border border-white/70 backdrop-blur-md flex flex-col justify-between transition-all duration-300">
             <div>
               <h3 className="text-xl font-bold text-ink">Upload PDF</h3>
-              <p className="text-sm font-medium text-ink/70 mt-2">Files stay local to your browser session for private studying.</p>
+              <p className="text-sm font-medium text-ink/70 mt-2">Upload PDFs to your secure cloud storage for focused studying.</p>
             </div>
             <input
               type="file"
@@ -815,8 +713,8 @@ export const Learn = () => {
                   aria-label="Code notes"
                 />
               ) : (
-                /* PDF viewer - loads from IndexedDB */
-                <PdfViewer contentId={selectedContent.id} title={selectedContent.title} />
+                /* PDF viewer - loads from server URL */
+                <PdfViewer contentUrl={selectedContent.url} title={selectedContent.title} />
               )}
             </div>
           </div>

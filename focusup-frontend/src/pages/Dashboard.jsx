@@ -1,3 +1,4 @@
+import { useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { DoodleBackground } from '../components/DoodleBackground'
 import { useFocusStore } from '../store/useFocusStore'
@@ -11,7 +12,15 @@ export const Dashboard = () => {
   const sessions = useFocusStore((s) => s.sessions)
   const currentSessionId = useFocusStore((s) => s.currentSessionId)
   const tabSwitches = useFocusStore((s) => s.tabSwitches)
+  const fetchUserData = useFocusStore((s) => s.fetchUserData)
+  const fetchSessions = useFocusStore((s) => s.fetchSessions)
   const currentSession = sessions.find((s) => s.id === currentSessionId)
+
+  // Fetch fresh data from backend on mount
+  useEffect(() => {
+    fetchUserData()
+    fetchSessions()
+  }, [fetchUserData, fetchSessions])
 
   const currentScore = user?.focusScore || focusScore
   const scoreInfo = getFocusScoreLevelInfo(currentScore)
