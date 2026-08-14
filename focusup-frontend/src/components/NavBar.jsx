@@ -52,7 +52,7 @@ export const NavBar = () => {
           </div>
         </Link>
         <nav className="hidden flex-1 items-center justify-center gap-6 text-base font-medium md:flex">
-          {links.map((item) => (
+          {isAuthenticated && links.map((item) => (
             <NavLink
               key={item.to}
               to={item.to}
@@ -65,12 +65,14 @@ export const NavBar = () => {
               {t(item.labelKey)}
             </NavLink>
           ))}
-          <div className="w-64 ml-4">
-            <GlobalSearchBar />
-          </div>
+          {isAuthenticated && (
+            <div className="w-64 ml-4">
+              <GlobalSearchBar />
+            </div>
+          )}
         </nav>
            <div className="flex items-center gap-2">
-              <NotificationBell />
+              {isAuthenticated && <NotificationBell />}
               {/* Profile Icon with Dropdown */}
               <div className="relative">
                 <button
@@ -148,7 +150,7 @@ export const NavBar = () => {
         <div className="md:hidden border-t border-clay/60 bg-[rgba(247,242,233,0.95)] backdrop-blur-md">
           <div className="mx-auto w-full max-w-[1600px] px-6 py-2">
             <div className="grid gap-2">
-              {links.map((item) => (
+              {isAuthenticated && links.map((item) => (
                 <NavLink
                   key={item.to}
                   to={item.to}

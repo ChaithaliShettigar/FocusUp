@@ -43,7 +43,8 @@ async function apiRequest(endpoint, options = {}) {
         
         if (refreshResponse.ok) {
           const refreshData = await refreshResponse.json()
-          setTokens(refreshData.accessToken, null)
+          // Rotate: store BOTH new access and refresh tokens
+          setTokens(refreshData.accessToken, refreshData.refreshToken)
           
           // Retry original request with new token
           config.headers.Authorization = `Bearer ${refreshData.accessToken}`
@@ -142,7 +143,7 @@ export const authAPI = {
     }).then(res => res.json())
     
     if (data.success) {
-      setTokens(data.accessToken, null)
+      setTokens(data.accessToken, data.refreshToken)
     }
     
     return data

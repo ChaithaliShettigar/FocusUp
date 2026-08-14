@@ -264,6 +264,13 @@ export const refreshToken = async (req, res, next) => {
       })
     }
 
+    if (decoded.type !== 'refresh') {
+      return res.status(401).json({
+        success: false,
+        message: 'Invalid token type'
+      })
+    }
+
     // Get user
     const user = await User.findById(decoded.id)
     
@@ -274,12 +281,14 @@ export const refreshToken = async (req, res, next) => {
       })
     }
 
-    // Generate new access token
+    // Rotate: issue BOTH new access and new refresh tokens
     const newAccessToken = generateToken(user._id)
+    const newRefreshToken = generateRefreshToken(user._id)
 
     res.status(200).json({
       success: true,
       accessToken: newAccessToken,
+      refreshToken: newRefreshToken,
     })
   } catch (error) {
     next(error)

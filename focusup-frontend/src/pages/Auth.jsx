@@ -1,10 +1,12 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, Navigate } from 'react-router-dom'
 import { DoodleBackground } from '../components/DoodleBackground'
 import { useFocusStore } from '../store/useFocusStore'
 import { toast } from 'react-hot-toast'
 import { authAPI } from '../services/api'
 import { Focus, Mail, Lock, User, ArrowRight, Loader2 } from 'lucide-react'
+
+const randomName = () => `field_${Math.random().toString(36).slice(2, 8)}`
 
 export const Auth = () => {
   const [mode, setMode] = useState('login')
@@ -12,7 +14,12 @@ export const Auth = () => {
   const [loading, setLoading] = useState(false)
   const setUser = useFocusStore((s) => s.setUser)
   const setAuthenticated = useFocusStore((s) => s.setAuthenticated)
+  const isAuthenticated = useFocusStore((s) => s.isAuthenticated)
   const navigate = useNavigate()
+
+  if (isAuthenticated) {
+    return <Navigate to="/dashboard" replace />
+  }
 
   const submit = async (e) => {
     e.preventDefault()
@@ -75,6 +82,10 @@ export const Auth = () => {
 
   const inputClass = "w-full rounded-xl border border-ink/10 bg-sand/40 px-4 py-3 text-sm text-ink placeholder:text-ink/30 focus:border-teal focus:outline-none focus:ring-2 focus:ring-teal/10 transition-all"
 
+  // Random field names to prevent browser autofill
+  const emailFieldName = useState(randomName)[0]
+  const passwordFieldName = useState(randomName)[0]
+
   return (
     <DoodleBackground>
       <div className="flex items-start justify-center pt-4 pb-12">
@@ -116,7 +127,7 @@ export const Auth = () => {
               </button>
             </div>
 
-            <form onSubmit={submit} className="space-y-4">
+            <form onSubmit={submit} className="space-y-4" autoComplete="off">
               {/* Register: Name */}
               {mode === 'register' && (
                 <div>
@@ -169,11 +180,12 @@ export const Auth = () => {
                   <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-ink/30" />
                   <input
                     type="email"
+                    name={emailFieldName}
                     value={form.email}
                     onChange={(e) => setForm({ ...form, email: e.target.value })}
                     className={`${inputClass} pl-9`}
                     placeholder="you@example.com"
-                    autoComplete="email"
+                    autoComplete="off"
                     required
                   />
                 </div>
@@ -186,11 +198,12 @@ export const Auth = () => {
                   <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-ink/30" />
                   <input
                     type="password"
+                    name={passwordFieldName}
                     value={form.password}
                     onChange={(e) => setForm({ ...form, password: e.target.value })}
                     className={`${inputClass} pl-9`}
                     placeholder={mode === 'register' ? '8+ chars, uppercase, number, symbol' : 'Enter your password'}
-                    autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
+                    autoComplete="new-password"
                     required
                     minLength={8}
                   />
