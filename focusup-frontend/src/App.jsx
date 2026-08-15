@@ -115,7 +115,7 @@ function App() {
         <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
         <Route path="*" element={<Landing />} />
       </Routes>
-      <HelpBot />
+      {isAuthenticated && <HelpBot />}
       {!hideNav && <ActiveSessionBanner />}
       <MiniBreak open={showBreak} onClose={() => setShowBreak(false)} />
 

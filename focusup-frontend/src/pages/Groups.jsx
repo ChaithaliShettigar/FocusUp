@@ -17,8 +17,10 @@ export const Groups = () => {
   const {
     groups, onlineUsers, joinGroupRoom, leaveGroupRoom,
     startSession, endSession, setCurrentSession, currentSessionId, user,
-    pushNotification
+    pushNotification, activeContentId, sessions
   } = useFocusStore()
+
+  const activeSession = sessions.find(s => s.id === currentSessionId)
 
   const [localGroups, setLocalGroups] = useState([])
   const [loading, setLoading] = useState(false)
@@ -72,6 +74,24 @@ export const Groups = () => {
   }
 
   useEffect(() => { fetchUserGroups() }, [])
+
+  // Restore active session view after groups are loaded
+  const hasRestoredGroupSession = useRef(false)
+  useEffect(() => {
+    if (hasRestoredGroupSession.current) return
+    if (!currentSessionId || !activeContentId || localGroups.length === 0) return
+
+    for (const group of localGroups) {
+      const resource = (group.resources || []).find(r => r.id === activeContentId)
+      if (resource) {
+        setSelectedGroup(group)
+        setViewingResource(resource)
+        setChatMessages(group.chatMessages || [])
+        hasRestoredGroupSession.current = true
+        break
+      }
+    }
+  }, [currentSessionId, activeContentId, localGroups])
 
   useEffect(() => {
     setLocalGroups(groups)
@@ -804,7 +824,19 @@ export const Groups = () => {
                       <div className="flex items-center justify-between p-3 border-b border-ink/10 bg-clay/30">
                         <div className="flex items-center gap-2 min-w-0">
                           {getResourceIcon(viewingResource.type)}
-                          <p className="text-sm font-semibold text-ink truncate">{viewingResource.title}</p>
+                          <div>
+                            <p className="text-sm font-semibold text-ink truncate">{viewingResource.title}</p>
+                            {activeSession && (
+                              <p className="text-xs font-medium text-accent">
+                                {(() => {
+                                  const remaining = Math.max(0, (activeSession.targetMinutes || 25) * 60 - (activeSession.elapsedSeconds || 0))
+                                  const mins = Math.floor(remaining / 60)
+                                  const secs = remaining % 60
+                                  return `Remaining: ${mins}:${secs.toString().padStart(2, '0')}`
+                                })()}
+                              </p>
+                            )}
+                          </div>
                         </div>
                         <button onClick={handleEndFocus}
                           className="flex items-center gap-1 px-3 py-1.5 rounded-full bg-red-500 text-white text-xs font-semibold hover:bg-red-600 transition-colors">

@@ -12,6 +12,9 @@ const clearTokens = () => {
   localStorage.removeItem('accessToken')
   localStorage.removeItem('refreshToken')
   localStorage.removeItem('user')
+  localStorage.removeItem('helpbot_chat_history')
+  localStorage.removeItem('helpbot_position')
+  localStorage.removeItem('helpbot_size')
 }
 
 // Generic API request handler with token refresh

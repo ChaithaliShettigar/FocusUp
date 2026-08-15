@@ -360,6 +360,17 @@ export const useFocusStore = create((set, get) => ({
           startedAt: new Date(s.startTime).getTime(),
         }))
         set({ sessions: mappedSessions })
+
+        // Restore active session if none is currently set
+        if (!get().currentSessionId) {
+          const activeSession = mappedSessions.find(s => s.status === 'active')
+          if (activeSession) {
+            set({
+              currentSessionId: activeSession.id,
+              activeContentId: activeSession.contentId || null,
+            })
+          }
+        }
       }
     } catch (err) {
       console.error('Failed to fetch sessions from backend:', err)
