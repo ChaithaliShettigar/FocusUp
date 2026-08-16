@@ -39,6 +39,8 @@ const loadSize = () => {
   } catch { return null }
 }
 
+const isMobileViewport = () => typeof window !== 'undefined' && window.innerWidth < 640
+
 const generateId = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7)
 const truncate = (str, len) => str.length > len ? str.slice(0, len) + '...' : str
 
@@ -54,8 +56,9 @@ export const HelpBot = () => {
   const { t, i18n } = useTranslation()
   const navigate = useNavigate()
 
+  const [isMobile, setIsMobile] = useState(() => isMobileViewport())
   const [open, setOpen] = useState(false)
-  const [maximized, setMaximized] = useState(false)
+  const [maximized, setMaximized] = useState(() => isMobileViewport())
   const [voice, setVoice] = useState(false)
   const [input, setInput] = useState('')
   const [isLoading, setIsLoading] = useState(false)
@@ -107,6 +110,25 @@ export const HelpBot = () => {
   useEffect(() => {
     if (open && !showHistory) inputRef.current?.focus()
   }, [open, showHistory])
+
+  useEffect(() => {
+    if (open && isMobile && !maximized) {
+      setMaximized(true)
+    }
+  }, [open, isMobile, maximized])
+
+  useEffect(() => {
+    const updateViewport = () => {
+      const mobile = isMobileViewport()
+      setIsMobile(mobile)
+      if (mobile && open) {
+        setMaximized(true)
+      }
+    }
+    updateViewport()
+    window.addEventListener('resize', updateViewport)
+    return () => window.removeEventListener('resize', updateViewport)
+  }, [open])
 
   useEffect(() => {
     if (!maximized && open) {
@@ -367,9 +389,9 @@ export const HelpBot = () => {
   }
 
   return (
-    <div className="fixed inset-0 z-40 pointer-events-none" style={{ position: 'fixed' }}>
+    <div className="fixed inset-0 z-[100] pointer-events-none" style={{ position: 'fixed' }}>
       <AnimatePresence>
-        {open && !maximized && (
+        {open && !maximized && !isMobile && (
           <motion.div
             ref={chatRef}
             initial={{ opacity: 0, scale: 0.95 }}
@@ -522,15 +544,15 @@ export const HelpBot = () => {
 
       {/* Maximized mode */}
       <AnimatePresence>
-        {open && maximized && (
+        {open && (maximized || isMobile) && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="pointer-events-auto fixed inset-0 z-50 flex flex-col bg-white/95 backdrop-blur-lg"
+            className={`pointer-events-auto fixed z-[120] flex flex-col bg-white/95 backdrop-blur-lg ${isMobile ? 'top-20 bottom-24 left-3 right-3 rounded-2xl border border-ink/10 shadow-2xl overflow-hidden' : 'inset-0'}`}
           >
             {/* Header */}
-            <div className="flex items-center justify-between bg-gradient-to-r from-accent via-leaf to-accent px-6 py-4 text-white shrink-0">
+            <div className={`flex items-center justify-between bg-gradient-to-r from-accent via-leaf to-accent text-white shrink-0 ${isMobile ? 'px-4 py-3' : 'px-6 py-4'}`}>
               <div className="flex items-center gap-3">
                 <button onClick={() => setShowHistory(h => !h)} className="rounded-full bg-white/20 hover:bg-white/30 p-2 transition-colors cursor-pointer" title="Chat History">
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
@@ -547,12 +569,16 @@ export const HelpBot = () => {
                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
                   </button>
                 )}
-                <button onClick={handleResetPosition} className="rounded-full bg-white/20 hover:bg-white/30 p-2 transition-colors cursor-pointer" title="Reset window position">
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" /></svg>
-                </button>
-                <button onClick={() => setMaximized(false)} className="rounded-full bg-white/20 hover:bg-white/30 p-2 transition-colors cursor-pointer" title="Restore down">
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" /></svg>
-                </button>
+                {!isMobile && (
+                  <button onClick={handleResetPosition} className="rounded-full bg-white/20 hover:bg-white/30 p-2 transition-colors cursor-pointer" title="Reset window position">
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" /></svg>
+                  </button>
+                )}
+                {!isMobile && (
+                  <button onClick={() => setMaximized(false)} className="rounded-full bg-white/20 hover:bg-white/30 p-2 transition-colors cursor-pointer" title="Restore down">
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" /></svg>
+                  </button>
+                )}
                 <button onClick={() => setOpen(false)} className="rounded-full bg-white/20 hover:bg-white/30 px-3 py-2 text-sm font-bold transition-colors cursor-pointer">✕</button>
               </div>
             </div>
@@ -646,7 +672,16 @@ export const HelpBot = () => {
       </AnimatePresence>
 
       {/* Toggle button */}
-      <button onClick={() => setOpen(o => !o)} className="pointer-events-auto group relative flex items-center gap-2 rounded-full bg-gradient-to-r from-ink via-ink/95 to-ink px-5 py-3.5 text-sm font-semibold text-sand shadow-lg hover:shadow-xl transition-all hover:scale-105" style={{ position: 'fixed', bottom: 24, right: 24, zIndex: 50 }}>
+      <button
+        onClick={() => {
+          const mobileNow = isMobileViewport()
+          setIsMobile(mobileNow)
+          setOpen(o => !o)
+          if (mobileNow) setMaximized(true)
+        }}
+        className="pointer-events-auto group relative flex items-center gap-2 rounded-full bg-gradient-to-r from-ink via-ink/95 to-ink px-5 py-3.5 text-sm font-semibold text-sand shadow-lg hover:shadow-xl transition-all hover:scale-105"
+        style={{ position: 'fixed', bottom: 24, right: 24, zIndex: 110 }}
+      >
         <span className="text-xl">🤖</span>
         <span>AI Study Buddy</span>
         <span className="rounded-full bg-accent/30 px-2 py-0.5 text-[10px] group-hover:bg-accent/50 transition-colors">✨ AI</span>
