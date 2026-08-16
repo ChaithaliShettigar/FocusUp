@@ -53,7 +53,6 @@ What would you like to know more about? Just ask! 😊`,
 
 1️⃣ **Upload PDFs** - Click "Upload PDF" and select your file
 2️⃣ **Add YouTube Links** - Paste any YouTube tutorial URL
-3️⃣ **Coding Study Cards** - Create notes for coding practice
 
 **Starting a Focus Session:**
 1. Set your target time (in minutes)
@@ -76,7 +75,7 @@ What would you like to know more about? Just ask! 😊`,
 3. You're in! Start sharing resources 🎉
 
 **Sharing Resources:**
-- Add PDFs, YouTube links, or code snippets
+- Add PDFs, YouTube links, or other study materials
 - All members can access shared materials
 - Compete on the focus score leaderboard! 🏆`,
 
@@ -206,7 +205,7 @@ WHAT YOU CAN DO:
 4. **MOTIVATION & JOKES** - Keep students energized and motivated!
 
 ABOUT FOCUSUP (only mention when asked about the website):
-- 📚 Learn Section: Store PDFs, YouTube tutorials, coding study materials
+- 📚 Learn Section: Store PDFs, YouTube tutorials, and study materials
 - 👥 Groups: Join study groups, share resources, compete on leaderboards  
 - ⏱️ Focus Timer: Track study sessions with distraction monitoring
 - 📊 Analytics: View focus scores, streaks, study patterns
@@ -560,7 +559,7 @@ const handleLocalSearch = (query, materials, res) => {
     return res.json({
       success: true,
       response: {
-        text: '📚 You don\'t have any materials in your library yet!\n\n**To add materials:**\n1. Go to the **Learn** section\n2. Upload PDFs, add YouTube links, or create coding cards\n3. Come back and ask me to find them! 🎯',
+        text: '📚 You don\'t have any materials in your library yet!\n\n**To add materials:**\n1. Go to the **Learn** section\n2. Upload PDFs or add YouTube links\n3. Come back and ask me to find them! 🎯',
         materials: [],
         type: 'search'
       }

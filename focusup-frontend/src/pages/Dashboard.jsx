@@ -120,7 +120,7 @@ export const Dashboard = () => {
               </div>
               <div>
                 <h4 className="text-xl font-extrabold text-ink">Ready to boost your focus?</h4>
-                <p className="text-sm font-medium text-ink/60 mt-1">No active session right now. Open a PDF, YouTube video, or code project from the Learn page to set your timer.</p>
+                <p className="text-sm font-medium text-ink/60 mt-1">No active session right now. Open a PDF or YouTube video from the Learn page to set your timer.</p>
               </div>
             </div>
             <Link

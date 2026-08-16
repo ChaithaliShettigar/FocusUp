@@ -8,7 +8,7 @@ import { useFocusStore } from '../store/useFocusStore'
 import { toast } from 'react-hot-toast'
 import {
   Users, Copy, Plus, Trash2, Upload, Play, Square,
-  FileText, Video, Code, Send, ArrowLeft, Search, UserPlus,
+  FileText, Video, Send, ArrowLeft, Search, UserPlus,
   LogOut, Clock, Calendar, CheckCircle2, AlertTriangle, Bell
 } from 'lucide-react'
 
@@ -37,8 +37,6 @@ export const Groups = () => {
   // Resource states
   const [resourceTitle, setResourceTitle] = useState('')
   const [youtubeLink, setYoutubeLink] = useState('')
-  const [codeTitle, setCodeTitle] = useState('')
-  const [codeNotes, setCodeNotes] = useState('')
   const [targetMinutes, setTargetMinutes] = useState(25)
   const [materialTargets, setMaterialTargets] = useState({})
   const [viewingResource, setViewingResource] = useState(null)
@@ -324,24 +322,6 @@ export const Groups = () => {
     } catch { toast.error('Failed') } finally { setLoading(false) }
   }
 
-  const handleCodeAdd = async () => {
-    if (!codeTitle.trim()) return toast.error('Enter a title')
-    if (!selectedGroup) return
-    setLoading(true)
-    try {
-      const res = await groupAPI.addResource(selectedGroup._id, {
-        title: codeTitle.trim(), content: codeNotes, type: 'code'
-      })
-      if (res.success) {
-        setSelectedGroup(res.group)
-        setLocalGroups(prev => prev.map(g => g._id === selectedGroup._id ? res.group : g))
-        setCodeTitle(''); setCodeNotes('')
-        pushNotification(`Code notes added to ${selectedGroup.name}`, 'material')
-        toast.success('Code notes added!')
-      }
-    } catch { toast.error('Failed') } finally { setLoading(false) }
-  }
-
   const handleDeleteResource = async (resource) => {
     if (!selectedGroup) return
     openConfirm({
@@ -601,7 +581,7 @@ export const Groups = () => {
   const getResourceIcon = (type) => {
     if (type === 'pdf') return <FileText className="w-4 h-4" />
     if (type === 'youtube') return <Video className="w-4 h-4" />
-    return <Code className="w-4 h-4" />
+    return <FileText className="w-4 h-4" />
   }
 
   // ── LOADING ──
@@ -701,41 +681,43 @@ export const Groups = () => {
         {selectedGroup ? (
           <div className={`flex-1 flex flex-col ${selectedGroup ? 'flex' : 'hidden md:flex'}`}>
             {/* Group Header */}
-            <div className="flex items-center gap-2 p-3 border-b border-ink/10 bg-white/50 shrink-0">
-              <button onClick={() => setSelectedGroup(null)}
-                className="md:hidden p-1.5 rounded-full hover:bg-clay/50 transition-colors shrink-0">
-                <ArrowLeft className="w-4 h-4 text-ink" />
-              </button>
-              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-teal to-blue flex items-center justify-center text-white font-bold text-sm shrink-0">
-                {selectedGroup.name?.charAt(0).toUpperCase()}
-              </div>
-              <div className="flex-1 min-w-0">
-                <h3 className="font-bold text-ink truncate">{selectedGroup.name}</h3>
-                <div className="flex items-center gap-2">
-                  <span className="text-xs font-mono text-teal">{selectedGroup.code}</span>
-                  <button onClick={() => copyCode(selectedGroup.code)}
-                    className="text-ink/40 hover:text-teal transition-colors">
-                    <Copy className="w-3 h-3" />
-                  </button>
+            <div className="border-b border-ink/10 bg-white/50 shrink-0">
+              <div className="flex items-center gap-1.5 sm:gap-2 p-2 sm:p-3">
+                <button onClick={() => setSelectedGroup(null)}
+                  className="md:hidden p-1 sm:p-1.5 rounded-full hover:bg-clay/50 transition-colors shrink-0">
+                  <ArrowLeft className="w-4 h-4 text-ink" />
+                </button>
+                <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-gradient-to-br from-teal to-blue flex items-center justify-center text-white font-bold text-xs sm:text-sm shrink-0">
+                  {selectedGroup.name?.charAt(0).toUpperCase()}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <h3 className="font-bold text-ink truncate text-sm sm:text-base">{selectedGroup.name}</h3>
+                  <div className="flex items-center gap-1.5 sm:gap-2">
+                    <span className="text-[10px] sm:text-xs font-mono text-teal">{selectedGroup.code}</span>
+                    <button onClick={() => copyCode(selectedGroup.code)}
+                      className="text-ink/40 hover:text-teal transition-colors">
+                      <Copy className="w-2.5 h-2.5 sm:w-3 sm:h-3" />
+                    </button>
+                  </div>
                 </div>
               </div>
-              <div className="flex items-center gap-1.5 ml-auto shrink-0">
+              <div className="flex items-center gap-1.5 px-2 sm:px-3 pb-2 sm:pb-3">
                 <button onClick={handleExitGroup}
-                  className="flex items-center gap-1 px-2 py-1.5 rounded-full bg-orange-500 text-white text-xs font-semibold hover:bg-orange-600 transition-colors"
+                  className="flex items-center gap-1 px-2.5 py-1.5 rounded-full bg-orange-500 text-white text-xs font-semibold hover:bg-orange-600 transition-colors shrink-0"
                   title="Exit Group">
-                  <LogOut className="w-3.5 h-3.5" /> <span className="hidden sm:inline">Exit</span>
+                  <LogOut className="w-3.5 h-3.5" /> Exit
                 </button>
                 {isGroupCreator && (
                   <button onClick={handleDeleteGroup}
-                    className="flex items-center gap-1 px-2 py-1.5 rounded-full bg-red-500 text-white text-xs font-semibold hover:bg-red-600 transition-colors"
+                    className="flex items-center gap-1 px-2.5 py-1.5 rounded-full bg-red-500 text-white text-xs font-semibold hover:bg-red-600 transition-colors shrink-0"
                     title="Delete Group">
-                    <Trash2 className="w-3.5 h-3.5" /> <span className="hidden sm:inline">Delete</span>
+                    <Trash2 className="w-3.5 h-3.5" /> Delete
                   </button>
                 )}
                 {currentSessionId && (
                   <button onClick={handleEndFocus}
-                    className="flex items-center gap-1 px-2 py-1.5 rounded-full bg-red-500 text-white text-xs font-semibold hover:bg-red-600 transition-colors">
-                    <Square className="w-3.5 h-3.5" /> <span className="hidden sm:inline">End Focus</span>
+                    className="flex items-center gap-1 px-2.5 py-1.5 rounded-full bg-red-500 text-white text-xs font-semibold hover:bg-red-600 transition-colors shrink-0">
+                    <Square className="w-3.5 h-3.5" /> End Focus
                   </button>
                 )}
               </div>
@@ -774,18 +756,6 @@ export const Groups = () => {
                       <input value={youtubeLink} onChange={(e) => setYoutubeLink(e.target.value)}
                         placeholder="https://youtube.com/..." className="text-xs rounded-lg border border-ink/10 px-2 py-1.5 mb-2 focus:outline-none focus:border-teal" />
                       <button onClick={handleYoutubeAdd} disabled={!youtubeLink.trim() || loading}
-                        className="text-xs font-semibold text-sand bg-ink rounded-lg py-1.5 hover:bg-ink/90 disabled:opacity-40 transition-colors">
-                        Add
-                      </button>
-                    </div>
-                    <div className="flex flex-col p-4 rounded-2xl border border-ink/10 bg-clay/20">
-                      <span className="text-xs font-medium text-ink/60 mb-2">Code Notes</span>
-                      <input value={codeTitle} onChange={(e) => setCodeTitle(e.target.value)}
-                        placeholder="Title" className="text-xs rounded-lg border border-ink/10 px-2 py-1.5 mb-1 focus:outline-none focus:border-teal" />
-                      <textarea value={codeNotes} onChange={(e) => setCodeNotes(e.target.value)}
-                        placeholder="Notes or snippet..." rows={2}
-                        className="text-xs rounded-lg border border-ink/10 px-2 py-1.5 mb-2 font-mono focus:outline-none focus:border-teal resize-none" />
-                      <button onClick={handleCodeAdd} disabled={!codeTitle.trim() || loading}
                         className="text-xs font-semibold text-sand bg-ink rounded-lg py-1.5 hover:bg-ink/90 disabled:opacity-40 transition-colors">
                         Add
                       </button>
@@ -848,7 +818,7 @@ export const Groups = () => {
                   ) : (
                     <div className="text-center py-10">
                       <FileText className="w-10 h-10 text-ink/20 mx-auto mb-2" />
-                      <p className="text-sm text-ink/50">No materials yet. Add PDFs, videos, or code notes above.</p>
+                      <p className="text-sm text-ink/50">No materials yet. Add PDFs or videos above.</p>
                     </div>
                   )}
 
@@ -888,12 +858,6 @@ export const Groups = () => {
                           className="aspect-video w-full"
                           allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                           allowFullScreen
-                        />
-                      ) : viewingResource.type === 'code' ? (
-                        <textarea
-                          value={viewingResource.content || viewingResource.notes || ''}
-                          readOnly
-                          className="h-[400px] w-full bg-ink/5 p-4 font-mono text-sm text-ink"
                         />
                       ) : (
                         <iframe

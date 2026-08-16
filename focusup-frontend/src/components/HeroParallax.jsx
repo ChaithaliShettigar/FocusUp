@@ -10,7 +10,6 @@ import {
   BookOpen,
   FileText,
   Play,
-  Code,
   CheckCircle,
   Sparkles,
   Zap,
@@ -113,13 +112,6 @@ const learningModes = [
     desc: 'Watch educational videos mindfully',
     color: 'from-red-500 to-pink-500',
     gradient: 'from-red-500/10 to-pink-500/5',
-  },
-  {
-    icon: Code,
-    title: 'Code Editor',
-    desc: 'Practice coding with syntax highlighting',
-    color: 'from-purple-500 to-indigo-500',
-    gradient: 'from-purple-500/10 to-indigo-500/5',
   },
 ]
 

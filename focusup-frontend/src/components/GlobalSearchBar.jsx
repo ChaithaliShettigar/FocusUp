@@ -8,8 +8,7 @@ const RESULTS_KEY = 'globalSearchResults'
 
 const normalizeMaterialType = (item) => {
   const type = String(item?.type || '').toLowerCase()
-  if (type === 'pdf' || type === 'youtube' || type === 'code') return type
-  if (type === 'note') return 'code'
+  if (type === 'pdf' || type === 'youtube') return type
   const link = item?.url || item?.link || ''
   if (typeof link === 'string' && (link.includes('youtube.com') || link.includes('youtu.be'))) return 'youtube'
   return 'pdf'
@@ -234,7 +233,7 @@ export default function GlobalSearchBar() {
                       {item.source === 'group' ? `${item.groupName} › Resources` : 'Learn'}
                     </span>
                     <span className="ml-auto text-xs px-2 py-0.5 rounded bg-clay/40 text-ink/60">
-                      {item.type === 'pdf' ? 'PDF' : item.type === 'youtube' ? 'YouTube' : 'Code'}
+                      {item.type === 'pdf' ? 'PDF' : 'YouTube'}
                     </span>
                   </>
                 )}

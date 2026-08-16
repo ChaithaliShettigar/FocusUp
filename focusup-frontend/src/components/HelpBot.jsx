@@ -320,7 +320,7 @@ export const HelpBot = () => {
 
   const MaterialCard = ({ material }) => (
     <button onClick={() => handleMaterialClick(material)} className="flex items-center gap-2 w-full text-left p-2 rounded-xl bg-white/80 hover:bg-accent/20 border border-ink/10 transition-all hover:scale-[1.02] shadow-sm">
-      <span className="text-lg">{material.type === 'pdf' ? '📄' : material.type === 'youtube' ? '🎬' : material.type === 'code' ? '💻' : '📎'}</span>
+      <span className="text-lg">{material.type === 'pdf' ? '📄' : material.type === 'youtube' ? '🎬' : '📎'}</span>
       <div className="flex-1 min-w-0">
         <div className="font-medium text-ink text-sm truncate">{material.title}</div>
         <div className="text-xs text-ink/60">📍 {material.location}</div>

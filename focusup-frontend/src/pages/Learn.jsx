@@ -89,8 +89,6 @@ export const Learn = () => {
   const [selectedContent, setSelectedContent] = useState(null)
   const [previewOnlyOpen, setPreviewOnlyOpen] = useState(false)
   const [locatedContentId, setLocatedContentId] = useState(null)
-  const [codeTitle, setCodeTitle] = useState('')
-  const [codeNotes, setCodeNotes] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [confirmOpen, setConfirmOpen] = useState(false)
   const [pendingDelete, setPendingDelete] = useState(null)
@@ -150,8 +148,6 @@ export const Learn = () => {
               } else {
                 contentType = 'pdf'
               }
-            } else if (item.type === 'note') {
-              contentType = 'code'
             } else if (item.type === 'pdf') {
               contentType = 'pdf'
             } else if (item.type === 'youtube') {
@@ -245,8 +241,6 @@ export const Learn = () => {
             if (item.type === 'link') {
               if (item.url?.includes('youtube') || item.url?.includes('youtu.be')) contentType = 'youtube'
               else contentType = 'pdf'
-            } else if (item.type === 'note') {
-              contentType = 'code'
             } else if (item.type === 'youtube') {
               contentType = 'youtube'
             } else if (item.type === 'pdf') {
@@ -387,43 +381,6 @@ export const Learn = () => {
     } catch (error) {
       console.error('Failed to save YouTube link:', error)
       toast.error('Failed to save YouTube link')
-    } finally {
-      setIsLoading(false)
-    }
-  }
-
-  const handleCode = async (e) => {
-    e.preventDefault()
-    if (!isAuthenticated) {
-      toast.error('Sign up or login to save coding study cards.')
-      return
-    }
-    if (!codeTitle.trim()) return
-    
-    setIsLoading(true)
-    try {
-      const response = await contentAPI.createContent({
-        title: codeTitle,
-        type: 'note',
-        description: codeNotes,
-        targetMinutes: 25,
-      })
-      if (response.success) {
-        addContent({ 
-          id: response.content._id,
-          title: codeTitle, 
-          type: 'code', 
-          notes: codeNotes,
-          targetMinutes: 25,
-        })
-        pushNotification(`Code notes "${codeTitle}" added to your materials`, 'material')
-        setCodeTitle('')
-        setCodeNotes('')
-        toast.success('Code practice saved!')
-      }
-    } catch (error) {
-      console.error('Failed to save code card:', error)
-      toast.error('Failed to save code card')
     } finally {
       setIsLoading(false)
     }
@@ -581,31 +538,6 @@ export const Learn = () => {
               </button>
             </div>
           </form>
-          <form onSubmit={handleCode} className="group rounded-3xl bg-white/80 hover:bg-white/95 p-8 shadow-soft hover:shadow-xl border border-white/70 backdrop-blur-md flex flex-col justify-between transition-all duration-300">
-            <div>
-              <h3 className="text-xl font-bold text-ink">Coding study</h3>
-              <p className="text-sm font-medium text-ink/70 mt-2">Track focused coding challenges with notes or code snippets.</p>
-            </div>
-            <div className="mt-6 flex flex-col gap-3">
-              <input
-                value={codeTitle}
-                onChange={(e) => setCodeTitle(e.target.value)}
-                placeholder="Topic or challenge name"
-                className="w-full rounded-2xl border border-ink/10 bg-white px-4 py-2.5 text-sm focus:border-teal focus:outline-none"
-                disabled={!isAuthenticated}
-              />
-              <textarea
-                value={codeNotes}
-                onChange={(e) => setCodeNotes(e.target.value)}
-                placeholder="Notes, snippet, or TODOs"
-                className="h-24 w-full rounded-2xl border border-ink/10 bg-white px-4 py-2.5 text-sm font-mono focus:border-teal focus:outline-none"
-                disabled={!isAuthenticated}
-              />
-              <button className={`self-start rounded-full px-6 py-2.5 text-sm font-bold text-sand shadow-sm transition-all ${!isAuthenticated ? 'bg-ink/50 cursor-not-allowed' : 'bg-ink hover:scale-105'}`} disabled={!isAuthenticated}>
-                Save coding card
-              </button>
-            </div>
-          </form>
         </div>
 
         <div className="rounded-3xl bg-white/80 hover:bg-white/95 p-8 shadow-soft hover:shadow-xl border border-white/70 backdrop-blur-md transition-all duration-300">
@@ -713,13 +645,6 @@ export const Learn = () => {
                   className="aspect-video w-full"
                   allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                   allowFullScreen
-                />
-              ) : selectedContent.type === 'code' ? (
-                <textarea
-                  value={selectedContent.notes || ''}
-                  readOnly
-                  className="h-[520px] w-full bg-ink/5 p-4 font-mono text-sm text-ink"
-                  aria-label="Code notes"
                 />
               ) : (
                 /* PDF viewer - loads from server URL */
