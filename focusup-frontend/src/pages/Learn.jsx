@@ -3,6 +3,7 @@ import { Link, useLocation } from 'react-router-dom'
 import { Trash2, Loader2 } from 'lucide-react'
 import { toast } from 'react-hot-toast'
 import { DoodleBackground } from '../components/DoodleBackground'
+import { ConfirmModal } from '../components/ConfirmModal'
 import { useFocusStore } from '../store/useFocusStore'
 import { contentAPI } from '../services/api'
 
@@ -91,6 +92,8 @@ export const Learn = () => {
   const [codeTitle, setCodeTitle] = useState('')
   const [codeNotes, setCodeNotes] = useState('')
   const [isLoading, setIsLoading] = useState(false)
+  const [confirmOpen, setConfirmOpen] = useState(false)
+  const [pendingDelete, setPendingDelete] = useState(null)
   const setContents = useFocusStore((s) => s.setContents)
 
   const handleUpdateTargetMinutes = (contentId, newMinutes) => {
@@ -454,10 +457,16 @@ export const Learn = () => {
   }
 
   const deleteMaterial = async (content) => {
-    const confirmed = window.confirm(`Remove "${content.title}" from your materials?`)
-    if (!confirmed) return
-    
+    setPendingDelete(content)
+    setConfirmOpen(true)
+  }
+
+  const confirmDelete = async () => {
+    if (!pendingDelete) return
+    setConfirmOpen(false)
     setIsLoading(true)
+    const content = pendingDelete
+    setPendingDelete(null)
     try {
       // Delete from backend
       if (content.id) {
@@ -720,6 +729,17 @@ export const Learn = () => {
           </div>
         )}
       </div>
+
+      <ConfirmModal
+        open={confirmOpen}
+        title="Delete material"
+        message={`Are you sure you want to delete "${pendingDelete?.title}"? This action cannot be undone.`}
+        confirmText="Delete"
+        cancelText="Cancel"
+        danger
+        onConfirm={confirmDelete}
+        onCancel={() => { setConfirmOpen(false); setPendingDelete(null) }}
+      />
     </DoodleBackground>
   )
 }

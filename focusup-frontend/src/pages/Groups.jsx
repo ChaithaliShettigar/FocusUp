@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { DoodleBackground } from '../components/DoodleBackground'
+import { ConfirmModal } from '../components/ConfirmModal'
 import { groupAPI, contentAPI, deadlineAPI } from '../services/api'
 import { socketService } from '../services/socket'
 import { useFocusStore } from '../store/useFocusStore'
@@ -61,6 +62,15 @@ export const Groups = () => {
   const [deadlineDate, setDeadlineDate] = useState('')
   const [deadlineTime, setDeadlineTime] = useState('')
   const [reminderInterval, setReminderInterval] = useState(60)
+
+  // Confirm modal state
+  const [confirmOpen, setConfirmOpen] = useState(false)
+  const [confirmConfig, setConfirmConfig] = useState({ title: '', message: '', onConfirm: null, danger: true })
+
+  const openConfirm = (config) => {
+    setConfirmConfig(config)
+    setConfirmOpen(true)
+  }
 
   const getMinDate = () => {
     const now = new Date()
@@ -334,16 +344,22 @@ export const Groups = () => {
 
   const handleDeleteResource = async (resource) => {
     if (!selectedGroup) return
-    if (!window.confirm(`Remove "${resource.title}"?`)) return
-    setLoading(true)
-    try {
-      const res = await groupAPI.deleteResource(selectedGroup._id, resource.id)
-      if (res.success) {
-        setSelectedGroup(res.group)
-        setLocalGroups(prev => prev.map(g => g._id === selectedGroup._id ? res.group : g))
-        toast.success('Removed!')
+    openConfirm({
+      title: 'Delete material',
+      message: `Are you sure you want to remove "${resource.title}"?`,
+      danger: true,
+      onConfirm: async () => {
+        setLoading(true)
+        try {
+          const res = await groupAPI.deleteResource(selectedGroup._id, resource.id)
+          if (res.success) {
+            setSelectedGroup(res.group)
+            setLocalGroups(prev => prev.map(g => g._id === selectedGroup._id ? res.group : g))
+            toast.success('Removed!')
+          }
+        } catch { toast.error('Failed') } finally { setLoading(false) }
       }
-    } catch { toast.error('Failed') } finally { setLoading(false) }
+    })
   }
 
   const handleStartFocus = async (resource) => {
@@ -393,40 +409,52 @@ export const Groups = () => {
 
   const handleExitGroup = async () => {
     if (!selectedGroup || !user) return
-    if (!window.confirm(`Are you sure you want to leave "${selectedGroup.name}"?`)) return
-    setLoading(true)
-    try {
-      const res = await groupAPI.leaveGroup(selectedGroup._id)
-      if (res.success) {
-        toast.success('You left the group')
-        socketService.leaveGroup(selectedGroup._id)
-        setLocalGroups(prev => prev.filter(g => g._id !== selectedGroup._id))
-        setSelectedGroup(null)
+    openConfirm({
+      title: 'Leave group',
+      message: `Are you sure you want to leave "${selectedGroup.name}"?`,
+      danger: true,
+      onConfirm: async () => {
+        setLoading(true)
+        try {
+          const res = await groupAPI.leaveGroup(selectedGroup._id)
+          if (res.success) {
+            toast.success('You left the group')
+            socketService.leaveGroup(selectedGroup._id)
+            setLocalGroups(prev => prev.filter(g => g._id !== selectedGroup._id))
+            setSelectedGroup(null)
+          }
+        } catch (err) {
+          toast.error(err.message || 'Failed to leave group')
+        } finally {
+          setLoading(false)
+        }
       }
-    } catch (err) {
-      toast.error(err.message || 'Failed to leave group')
-    } finally {
-      setLoading(false)
-    }
+    })
   }
 
   const handleDeleteGroup = async () => {
     if (!selectedGroup) return
-    if (!window.confirm(`Are you sure you want to delete "${selectedGroup.name}"? This cannot be undone.`)) return
-    setLoading(true)
-    try {
-      const res = await groupAPI.deleteGroup(selectedGroup._id)
-      if (res.success) {
-        toast.success('Group deleted')
-        socketService.leaveGroup(selectedGroup._id)
-        setLocalGroups(prev => prev.filter(g => g._id !== selectedGroup._id))
-        setSelectedGroup(null)
+    openConfirm({
+      title: 'Delete group',
+      message: `Are you sure you want to delete "${selectedGroup.name}"? This cannot be undone.`,
+      danger: true,
+      onConfirm: async () => {
+        setLoading(true)
+        try {
+          const res = await groupAPI.deleteGroup(selectedGroup._id)
+          if (res.success) {
+            toast.success('Group deleted')
+            socketService.leaveGroup(selectedGroup._id)
+            setLocalGroups(prev => prev.filter(g => g._id !== selectedGroup._id))
+            setSelectedGroup(null)
+          }
+        } catch (err) {
+          toast.error(err.message || 'Failed to delete group')
+        } finally {
+          setLoading(false)
+        }
       }
-    } catch (err) {
-      toast.error(err.message || 'Failed to delete group')
-    } finally {
-      setLoading(false)
-    }
+    })
   }
 
   const isGroupCreator = selectedGroup && user && (selectedGroup.createdBy?._id === user._id || selectedGroup.createdBy === user._id)
@@ -505,16 +533,22 @@ export const Groups = () => {
 
   const handleDeleteDeadline = async (deadline) => {
     if (!selectedGroup) return
-    if (!window.confirm(`Delete deadline "${deadline.title}"?`)) return
-    try {
-      const res = await deadlineAPI.deleteDeadline(selectedGroup._id, deadline._id)
-      if (res.success) {
-        setDeadlines(prev => prev.filter(d => d._id !== deadline._id))
-        toast.success('Deadline deleted')
+    openConfirm({
+      title: 'Delete deadline',
+      message: `Are you sure you want to delete deadline "${deadline.title}"?`,
+      danger: true,
+      onConfirm: async () => {
+        try {
+          const res = await deadlineAPI.deleteDeadline(selectedGroup._id, deadline._id)
+          if (res.success) {
+            setDeadlines(prev => prev.filter(d => d._id !== deadline._id))
+            toast.success('Deadline deleted')
+          }
+        } catch (err) {
+          toast.error(err.message || 'Failed')
+        }
       }
-    } catch (err) {
-      toast.error(err.message || 'Failed')
-    }
+    })
   }
 
   const getTimeRemaining = (deadlineDate) => {
@@ -798,7 +832,7 @@ export const Groups = () => {
                                 </button>
                               ) : (
                                 <button onClick={() => handleStartFocus(r)}
-                                  className="flex items-center gap-1 px-3 py-1.5 rounded-full bg-teal text-white text-xs font-semibold hover:bg-teal-600 transition-colors">
+                                  className="flex items-center gap-1 px-3 py-1.5 rounded-full bg-ink text-sand text-xs font-semibold hover:bg-ink/90 transition-colors">
                                   <Play className="w-3 h-3" /> Focus
                                 </button>
                               )}
@@ -960,7 +994,7 @@ export const Groups = () => {
                           Cancel
                         </button>
                         <button type="submit" disabled={loading || !deadlineTitle.trim() || !deadlineDate || !deadlineTime}
-                          className="flex-1 rounded-xl bg-teal py-2 text-sm font-semibold text-white hover:bg-teal-600 disabled:opacity-50">
+                          className="flex-1 rounded-xl bg-ink py-2 text-sm font-semibold text-sand hover:bg-ink/90 disabled:opacity-50">
                           {loading ? 'Creating...' : 'Create'}
                         </button>
                       </div>
@@ -1128,7 +1162,7 @@ export const Groups = () => {
                       placeholder="Type a message..."
                       className="flex-1 bg-clay/40 rounded-full px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal/30" />
                     <button type="submit" disabled={!newMessage.trim()}
-                      className="p-2.5 rounded-full bg-teal text-white hover:bg-teal-600 disabled:opacity-40 transition-colors">
+                      className="p-2.5 rounded-full bg-ink text-sand hover:bg-ink/90 disabled:opacity-40 transition-colors">
                       <Send className="w-4 h-4" />
                     </button>
                   </form>
@@ -1159,7 +1193,7 @@ export const Groups = () => {
                 <button type="button" onClick={() => setShowCreateModal(false)}
                   className="flex-1 rounded-xl border border-ink/20 py-2.5 text-sm font-semibold text-ink hover:bg-clay/50">Cancel</button>
                 <button type="submit" disabled={loading || !groupName.trim()}
-                  className="flex-1 rounded-xl bg-teal py-2.5 text-sm font-semibold text-white hover:bg-teal-600 disabled:opacity-50">
+                  className="flex-1 rounded-xl bg-ink py-2.5 text-sm font-semibold text-sand hover:bg-ink/90 disabled:opacity-50">
                   {loading ? 'Creating...' : 'Create'}
                 </button>
               </div>
@@ -1190,6 +1224,17 @@ export const Groups = () => {
           </div>
         </div>
       )}
+
+      <ConfirmModal
+        open={confirmOpen}
+        title={confirmConfig.title}
+        message={confirmConfig.message}
+        confirmText="Delete"
+        cancelText="Cancel"
+        danger={confirmConfig.danger}
+        onConfirm={() => { setConfirmOpen(false); confirmConfig.onConfirm?.() }}
+        onCancel={() => setConfirmOpen(false)}
+      />
     </DoodleBackground>
   )
 }

@@ -55,13 +55,14 @@ const sessionSchema = new mongoose.Schema(
   { timestamps: true }
 )
 
-// Calculate focus score before saving
+// Calculate focus score before saving (0-100 scale)
 sessionSchema.pre('save', function (next) {
   if (this.status === 'completed') {
-    // Score based on completion and tab switches
-    const completionBonus = 50
-    const tabSwitchPenalty = this.tabSwitches * 2
-    this.focusScore = Math.max(0, completionBonus - tabSwitchPenalty)
+    const completionRatio = Math.min(1, this.actualMinutes / (this.targetMinutes || 1))
+    const baseScore = completionRatio * 60
+    const tabSwitchPenalty = Math.min(30, this.tabSwitches * 3)
+    const durationBonus = completionRatio >= 1 ? 10 : 0
+    this.focusScore = Math.max(0, Math.min(100, Math.round(baseScore - tabSwitchPenalty + durationBonus)))
   }
   next()
 })

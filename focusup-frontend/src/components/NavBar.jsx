@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { ConfirmModal } from './ConfirmModal'
 import GlobalSearchBar from './GlobalSearchBar'
 import { NotificationBell } from './NotificationBell'
 import { Link, NavLink, useNavigate } from 'react-router-dom'
@@ -26,6 +27,7 @@ export const NavBar = () => {
   const setUser = useFocusStore((s) => s.setUser)
   const [mobileOpen, setMobileOpen] = useState(false)
   const [profileOpen, setProfileOpen] = useState(false)
+  const [logoutConfirmOpen, setLogoutConfirmOpen] = useState(false)
   const navigate = useNavigate()
 
   const handleLogout = async () => {
@@ -107,7 +109,7 @@ export const NavBar = () => {
                           Settings
                         </NavLink>
                         <button
-                          onClick={() => { handleLogout(); setProfileOpen(false); }}
+                          onClick={() => { setProfileOpen(false); setLogoutConfirmOpen(true) }}
                           className="flex items-center w-full px-4 py-2 text-sm text-ink hover:bg-clay/10"
                         >
                           <LogOut className="h-4 w-4 mr-2" />
@@ -167,8 +169,8 @@ export const NavBar = () => {
               {isAuthenticated ? (
                 <button
                   onClick={() => {
-                    handleLogout()
                     setMobileOpen(false)
+                    setLogoutConfirmOpen(true)
                   }}
                   className="flex items-center w-full px-4 py-2 text-sm text-ink hover:bg-clay/10"
                 >
@@ -192,6 +194,16 @@ export const NavBar = () => {
           </div>
         </div>
       )}
+      <ConfirmModal
+        open={logoutConfirmOpen}
+        title="Logout"
+        message="Are you sure you want to logout?"
+        confirmText="Logout"
+        cancelText="Cancel"
+        danger
+        onConfirm={() => { setLogoutConfirmOpen(false); handleLogout() }}
+        onCancel={() => setLogoutConfirmOpen(false)}
+      />
     </header>
   )
 }

@@ -210,23 +210,14 @@ export const useFocusStore = create((set, get) => ({
   endSession: async (sessionId, status = 'completed') => {
     const sessions = get().sessions.map((s) => (s.id === sessionId ? { ...s, status } : s))
     const finished = sessions.find((s) => s.id === sessionId)
-    let scoreDelta = 0
-    if (finished) {
-      const completion = finished.elapsedSeconds / (finished.targetMinutes * 60 || 1)
-      const activityRatio = finished.activeSeconds / (finished.elapsedSeconds || 1)
-      const distractionPenalty = finished.tabSwitches * 2 + finished.idleSeconds / 30
-      scoreDelta = Math.max(0, Math.round(100 * completion * activityRatio - distractionPenalty))
-    }
 
     set({
       sessions,
-      focusScore: Math.max(0, get().focusScore + scoreDelta),
-      streak: status === 'completed' ? get().streak + 1 : get().streak,
       currentSessionId: status === 'active' ? sessionId : null,
       activeContentId: status === 'active' ? get().activeContentId : null,
     })
 
-    // Persist session end to MongoDB in the background
+    // Persist session end to MongoDB — backend is source of truth for score and streak
     try {
       if (finished?.backendId || (finished && sessionId === finished.id && !sessionId.startsWith('local'))) {
         const backendId = finished?.backendId || sessionId
@@ -235,6 +226,8 @@ export const useFocusStore = create((set, get) => ({
           actualMinutes: Math.round(finished.elapsedSeconds / 60),
           tabSwitches: finished.tabSwitches,
         })
+        // Re-fetch user data to get updated focusScore and streak from backend
+        get().fetchUserData()
       }
     } catch (err) {
       console.error('Failed to persist session end to backend:', err)

@@ -40,20 +40,16 @@ export const Analytics = () => {
   const sessions = analyticsData?.sessions || []
   const chartData = sessions.map((s, idx) => ({
     name: s.subject || `S${idx + 1}`,
-    planned: s.duration || 0,
+    planned: s.targetMinutes || 0,
     actual: s.duration || 0,
-    active: s.duration || 0,
-    idle: 0,
-    tabSwitches: 0,
   }))
 
-  const totalPlanned = analyticsData?.totalFocusTime || 0
+  const totalPlanned = analyticsData?.totalTargetTime || analyticsData?.totalFocusTime || 0
   const totalActual = analyticsData?.totalFocusTime || 0
-  const totalActive = analyticsData?.totalFocusTime || 0
-  const totalIdle = 0
+  const totalIdle = Math.max(0, totalPlanned - totalActual)
 
   const activityData = [
-    { name: 'Active Study', value: totalActive, fill: '#1f2933' },
+    { name: 'Active Study', value: totalActual, fill: '#1f2933' },
     { name: 'Idle Time', value: totalIdle, fill: '#8bd3dd' },
   ]
 
@@ -101,7 +97,7 @@ export const Analytics = () => {
           />
           <Metric 
             title="Active study time" 
-            value={`${totalActive} min`} 
+            value={`${totalActual} min`} 
             hint="Scrolling, typing, active interactions" 
             icon={Activity}
             iconBg="bg-teal-500/10"

@@ -11,7 +11,6 @@ export const Dashboard = () => {
   const streak = useFocusStore((s) => s.streak)
   const sessions = useFocusStore((s) => s.sessions)
   const currentSessionId = useFocusStore((s) => s.currentSessionId)
-  const tabSwitches = useFocusStore((s) => s.tabSwitches)
   const fetchUserData = useFocusStore((s) => s.fetchUserData)
   const fetchSessions = useFocusStore((s) => s.fetchSessions)
   const currentSession = sessions.find((s) => s.id === currentSessionId)
@@ -24,6 +23,8 @@ export const Dashboard = () => {
 
   const currentScore = user?.focusScore || focusScore
   const scoreInfo = getFocusScoreLevelInfo(currentScore)
+  const completedSessions = sessions.filter((s) => s.status === 'completed')
+  const sessionTabSwitches = completedSessions.reduce((sum, s) => sum + (s.tabSwitches || 0), 0)
 
   return (
     <DoodleBackground>
@@ -68,7 +69,7 @@ export const Dashboard = () => {
           />
           <StatCard
             title="Sessions"
-            value={sessions.length}
+            value={completedSessions.length}
             hint="Total sessions completed"
             icon={Clock}
             iconBg="bg-teal-500/10"
@@ -76,7 +77,7 @@ export const Dashboard = () => {
           />
           <StatCard
             title="Tab switches"
-            value={tabSwitches}
+            value={sessionTabSwitches}
             hint="Fewer switches = maximum focus"
             icon={Activity}
             iconBg="bg-purple-500/10"

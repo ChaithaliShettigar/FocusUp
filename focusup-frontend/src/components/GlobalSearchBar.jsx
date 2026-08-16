@@ -1,7 +1,10 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect, useCallback } from 'react'
 import { Search, MessageSquare } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { contentAPI, groupAPI, isAuthenticated } from '../services/api'
+
+const QUERY_KEY = 'globalSearchQuery'
+const RESULTS_KEY = 'globalSearchResults'
 
 const normalizeMaterialType = (item) => {
   const type = String(item?.type || '').toLowerCase()
@@ -13,35 +16,35 @@ const normalizeMaterialType = (item) => {
 }
 
 export default function GlobalSearchBar() {
-  const [query, setQuery] = useState('')
-  const [results, setResults] = useState([])
-  const [showDropdown, setShowDropdown] = useState(false)
+  const [query, setQuery] = useState(() => sessionStorage.getItem(QUERY_KEY) || '')
+  const [results, setResults] = useState(() => {
+    try {
+      const saved = sessionStorage.getItem(RESULTS_KEY)
+      return saved ? JSON.parse(saved) : []
+    } catch { return [] }
+  })
+  const [showDropdown, setShowDropdown] = useState(() => {
+    const q = sessionStorage.getItem(QUERY_KEY)
+    return !!(q && q.trim().length > 0)
+  })
   const [loading, setLoading] = useState(false)
   const inputRef = useRef(null)
   const navigate = useNavigate()
   const debounceTimeout = useRef(null)
 
-  const handleInput = (e) => {
-    const value = e.target.value
-    setQuery(value)
-    if (debounceTimeout.current) clearTimeout(debounceTimeout.current)
-    if (value.trim().length === 0) {
-      setResults([])
-      setShowDropdown(true)
-      return
-    }
-
-    if (!isAuthenticated()) {
-      setResults([])
-      setShowDropdown(true)
-      return
-    }
-    debounceTimeout.current = setTimeout(() => {
-      searchContent(value)
-    }, 350)
+  const saveResults = (items) => {
+    setResults(items)
+    try { sessionStorage.setItem(RESULTS_KEY, JSON.stringify(items)) } catch {}
   }
 
-  const searchContent = async (q) => {
+  const clearSaved = () => {
+    setResults([])
+    setShowDropdown(false)
+    sessionStorage.removeItem(QUERY_KEY)
+    sessionStorage.removeItem(RESULTS_KEY)
+  }
+
+  const searchContent = useCallback(async (q) => {
     setLoading(true)
     try {
       const [contentRes, groupsRes] = await Promise.all([
@@ -51,7 +54,6 @@ export default function GlobalSearchBar() {
 
       const searchTerm = q.trim().toLowerCase()
 
-      // Search learn materials
       const learnMaterials = (contentRes?.content || [])
         .map((item) => ({
           id: `learn-${item._id}`,
@@ -62,11 +64,9 @@ export default function GlobalSearchBar() {
         }))
         .filter((item) => item.title.toLowerCase().includes(searchTerm))
 
-      // Search group resources
       const groupMaterials = (groupsRes?.groups || []).flatMap((group) => {
         const groupName = group?.name || 'Group'
         const resources = Array.isArray(group?.resources) ? group.resources : []
-
         return resources
           .map((resource, index) => {
             const resourceId = resource?.id || resource?._id || `${group._id}-r-${index}`
@@ -87,14 +87,12 @@ export default function GlobalSearchBar() {
           })
       })
 
-      // Search group chat messages
       const groupMessages = (groupsRes?.groups || []).flatMap((group) => {
         const groupName = group?.name || 'Group'
         const messages = Array.isArray(group?.chatMessages) ? group.chatMessages : []
-
         return messages
           .filter((msg) => msg.text && msg.text.toLowerCase().includes(searchTerm))
-          .slice(-5) // limit to last 5 matching messages per group
+          .slice(-5)
           .map((msg) => ({
             id: `msg-${group._id}-${msg._id || msg.timestamp}`,
             source: 'message',
@@ -106,20 +104,52 @@ export default function GlobalSearchBar() {
           }))
       })
 
-      setResults([...learnMaterials, ...groupMaterials, ...groupMessages])
+      const all = [...learnMaterials, ...groupMaterials, ...groupMessages]
+      saveResults(all)
       setShowDropdown(true)
     } catch (err) {
       console.error('Search error:', err)
-      setResults([])
+      saveResults([])
       setShowDropdown(true)
     } finally {
       setLoading(false)
     }
+  }, [])
+
+  useEffect(() => {
+    const saved = sessionStorage.getItem(QUERY_KEY)
+    if (saved && saved.trim().length > 0 && isAuthenticated()) {
+      searchContent(saved)
+    }
+  }, [searchContent])
+
+  const handleInput = (e) => {
+    const value = e.target.value
+    setQuery(value)
+    if (value.trim().length > 0) {
+      sessionStorage.setItem(QUERY_KEY, value)
+    } else {
+      clearSaved()
+      setShowDropdown(true)
+      return
+    }
+    if (debounceTimeout.current) clearTimeout(debounceTimeout.current)
+    if (value.trim().length === 0) {
+      return
+    }
+
+    if (!isAuthenticated()) {
+      saveResults([])
+      setShowDropdown(true)
+      return
+    }
+    debounceTimeout.current = setTimeout(() => {
+      searchContent(value)
+    }, 350)
   }
 
   const handleResultClick = (item) => {
-    setShowDropdown(false)
-    setQuery('')
+    clearSaved()
     if (inputRef.current) inputRef.current.blur()
 
     if (item.source === 'learn') {

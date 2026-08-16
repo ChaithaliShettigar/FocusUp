@@ -1,4 +1,5 @@
 import User from '../models/User.js'
+import Session from '../models/Session.js'
 import { validatePassword } from '../utils/validators.js'
 
 // ============ GET PROFILE ============
@@ -13,9 +14,15 @@ export const getProfile = async (req, res, next) => {
       })
     }
 
+    // Compute focusScore as average of completed session scores
+    const sessions = await Session.find({ userId: user._id, status: 'completed' }).select('focusScore').lean()
+    const focusScore = sessions.length > 0
+      ? Math.round(sessions.reduce((sum, s) => sum + s.focusScore, 0) / sessions.length)
+      : 0
+
     res.status(200).json({
       success: true,
-      user,
+      user: { ...user.toObject(), focusScore },
     })
   } catch (error) {
     next(error)
