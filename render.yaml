@@ -1,0 +1,26 @@
+services:
+  - type: web
+    name: focusup-backend
+    env: node
+    rootDir: focusup-backend
+    plan: free
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: MONGODB_URI
+        sync: false
+      - key: JWT_SECRET
+        sync: false
+      - key: JWT_REFRESH_SECRET
+        sync: false
+      - key: JWT_EXPIRE
+        value: 7d
+      - key: JWT_REFRESH_EXPIRE
+        value: 30d
+      - key: FRONTEND_URL
+        sync: false
+      - key: OPENROUTER_API_KEY
+        sync: false

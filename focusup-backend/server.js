@@ -12,6 +12,21 @@ import { connectDB } from './config/db.js'
 import { errorHandler } from './middleware/errorHandler.js'
 import Group from './models/Group.js'
 
+const parseAllowedOrigins = () => {
+  const configured = (process.env.FRONTEND_URL || '')
+    .split(',')
+    .map((origin) => origin.trim())
+    .filter(Boolean)
+
+  return [
+    'http://localhost:5173',
+    'http://localhost:5174',
+    ...configured,
+  ]
+}
+
+const allowedOrigins = parseAllowedOrigins()
+
 // Ensure uploads folder exists and serve it as static
 const uploadsDir = path.join(process.cwd(), 'uploads')
 if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir)
@@ -32,11 +47,7 @@ const app = express()
 const server = createServer(app)
 const io = new Server(server, {
   cors: {
-    origin: [
-      'http://localhost:5173',
-      'http://localhost:5174',
-      process.env.FRONTEND_URL
-    ].filter(Boolean),
+    origin: allowedOrigins,
     methods: ['GET', 'POST'],
     credentials: true
   }
@@ -46,11 +57,7 @@ const io = new Server(server, {
 app.use(express.json())
 app.use(express.urlencoded({ extended: true }))
 app.use(cors({
-  origin: [
-    'http://localhost:5173',
-    'http://localhost:5174',
-    process.env.FRONTEND_URL
-  ].filter(Boolean),
+  origin: allowedOrigins,
   credentials: true
 }))
 
