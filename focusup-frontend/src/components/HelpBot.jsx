@@ -39,7 +39,8 @@ const loadSize = () => {
   } catch { return null }
 }
 
-const isMobileViewport = () => typeof window !== 'undefined' && window.innerWidth < 640
+const MOBILE_BREAKPOINT = 768
+const isMobileViewport = () => typeof window !== 'undefined' && window.innerWidth < MOBILE_BREAKPOINT
 
 const generateId = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7)
 const truncate = (str, len) => str.length > len ? str.slice(0, len) + '...' : str
@@ -51,6 +52,20 @@ const MIN_HEIGHT = 350
 const MAX_WIDTH = 900
 const MAX_HEIGHT = 800
 const RESIZE_HANDLE = 8
+const MOBILE_RESIZE_HANDLE = 18
+
+const getClientPoint = (event) => {
+  if (event.touches && event.touches.length > 0) {
+    return { x: event.touches[0].clientX, y: event.touches[0].clientY }
+  }
+  if (event.changedTouches && event.changedTouches.length > 0) {
+    return { x: event.changedTouches[0].clientX, y: event.changedTouches[0].clientY }
+  }
+  if (typeof event.clientX === 'number' && typeof event.clientY === 'number') {
+    return { x: event.clientX, y: event.clientY }
+  }
+  return null
+}
 
 export const HelpBot = () => {
   const { t, i18n } = useTranslation()
@@ -275,14 +290,19 @@ export const HelpBot = () => {
 
   const handleDragStart = (e) => {
     if (maximized) return
+    const startPoint = getClientPoint(e)
+    if (!startPoint) return
     e.preventDefault()
-    dragRef.current = { dragging: true, startX: e.clientX, startY: e.clientY, origX: position.x, origY: position.y }
+    dragRef.current = { dragging: true, startX: startPoint.x, startY: startPoint.y, origX: position.x, origY: position.y }
     document.body.style.cursor = 'grabbing'
     document.body.style.userSelect = 'none'
     const onMove = (ev) => {
       if (!dragRef.current.dragging) return
-      const dx = ev.clientX - dragRef.current.startX
-      const dy = ev.clientY - dragRef.current.startY
+      const movePoint = getClientPoint(ev)
+      if (!movePoint) return
+      if (ev.cancelable) ev.preventDefault()
+      const dx = movePoint.x - dragRef.current.startX
+      const dy = movePoint.y - dragRef.current.startY
       setPosition({
         x: Math.max(0, Math.min(window.innerWidth - size.w, dragRef.current.origX + dx)),
         y: Math.max(0, Math.min(window.innerHeight - 80, dragRef.current.origY + dy))
@@ -294,23 +314,32 @@ export const HelpBot = () => {
       document.body.style.userSelect = ''
       window.removeEventListener('mousemove', onMove)
       window.removeEventListener('mouseup', onUp)
+      window.removeEventListener('touchmove', onMove)
+      window.removeEventListener('touchend', onUp)
     }
     window.addEventListener('mousemove', onMove)
     window.addEventListener('mouseup', onUp)
+    window.addEventListener('touchmove', onMove, { passive: false })
+    window.addEventListener('touchend', onUp)
   }
 
   const handleResizeStart = (e, edge) => {
     if (maximized) return
+    const startPoint = getClientPoint(e)
+    if (!startPoint) return
     e.preventDefault()
     e.stopPropagation()
-    resizeRef.current = { resizing: true, edge, startX: e.clientX, startY: e.clientY, origX: position.x, origY: position.y, origW: size.w, origH: size.h }
+    resizeRef.current = { resizing: true, edge, startX: startPoint.x, startY: startPoint.y, origX: position.x, origY: position.y, origW: size.w, origH: size.h }
     const cursorMap = { top: 'ns-resize', bottom: 'ns-resize', left: 'ew-resize', right: 'ew-resize', 'top-left': 'nwse-resize', 'top-right': 'nesw-resize', 'bottom-left': 'nesw-resize', 'bottom-right': 'nwse-resize' }
     document.body.style.cursor = cursorMap[edge]
     document.body.style.userSelect = 'none'
     const onMove = (ev) => {
       if (!resizeRef.current.resizing) return
-      const dx = ev.clientX - resizeRef.current.startX
-      const dy = ev.clientY - resizeRef.current.startY
+      const movePoint = getClientPoint(ev)
+      if (!movePoint) return
+      if (ev.cancelable) ev.preventDefault()
+      const dx = movePoint.x - resizeRef.current.startX
+      const dy = movePoint.y - resizeRef.current.startY
       const { edge: e, origX: ox, origY: oy, origW: ow, origH: oh } = resizeRef.current
       let newX = ox, newY = oy, newW = ow, newH = oh
 
@@ -335,9 +364,13 @@ export const HelpBot = () => {
       document.body.style.userSelect = ''
       window.removeEventListener('mousemove', onMove)
       window.removeEventListener('mouseup', onUp)
+      window.removeEventListener('touchmove', onMove)
+      window.removeEventListener('touchend', onUp)
     }
     window.addEventListener('mousemove', onMove)
     window.addEventListener('mouseup', onUp)
+    window.addEventListener('touchmove', onMove, { passive: false })
+    window.addEventListener('touchend', onUp)
   }
 
   const MaterialCard = ({ material }) => (
@@ -377,21 +410,22 @@ export const HelpBot = () => {
 
   const resizeEdges = ['top', 'right', 'bottom', 'left', 'top-left', 'top-right', 'bottom-left', 'bottom-right']
   const resizeCursorMap = { top: 'ns-resize', bottom: 'ns-resize', left: 'ew-resize', right: 'ew-resize', 'top-left': 'nwse-resize', 'top-right': 'nesw-resize', 'bottom-left': 'nesw-resize', 'bottom-right': 'nwse-resize' }
+  const resizeHandleSize = isMobile ? MOBILE_RESIZE_HANDLE : RESIZE_HANDLE
   const resizeStyleMap = {
-    top:    { top: 0, left: RESIZE_HANDLE, right: RESIZE_HANDLE, height: RESIZE_HANDLE, cursor: 'ns-resize' },
-    bottom: { bottom: 0, left: RESIZE_HANDLE, right: RESIZE_HANDLE, height: RESIZE_HANDLE, cursor: 'ns-resize' },
-    left:   { top: RESIZE_HANDLE, bottom: RESIZE_HANDLE, left: 0, width: RESIZE_HANDLE, cursor: 'ew-resize' },
-    right:  { top: RESIZE_HANDLE, bottom: RESIZE_HANDLE, right: 0, width: RESIZE_HANDLE, cursor: 'ew-resize' },
-    'top-left':     { top: 0, left: 0, width: RESIZE_HANDLE * 2, height: RESIZE_HANDLE * 2, cursor: 'nwse-resize' },
-    'top-right':    { top: 0, right: 0, width: RESIZE_HANDLE * 2, height: RESIZE_HANDLE * 2, cursor: 'nesw-resize' },
-    'bottom-left':  { bottom: 0, left: 0, width: RESIZE_HANDLE * 2, height: RESIZE_HANDLE * 2, cursor: 'nesw-resize' },
-    'bottom-right': { bottom: 0, right: 0, width: RESIZE_HANDLE * 2, height: RESIZE_HANDLE * 2, cursor: 'nwse-resize' },
+    top:    { top: 0, left: resizeHandleSize, right: resizeHandleSize, height: resizeHandleSize, cursor: 'ns-resize' },
+    bottom: { bottom: 0, left: resizeHandleSize, right: resizeHandleSize, height: resizeHandleSize, cursor: 'ns-resize' },
+    left:   { top: resizeHandleSize, bottom: resizeHandleSize, left: 0, width: resizeHandleSize, cursor: 'ew-resize' },
+    right:  { top: resizeHandleSize, bottom: resizeHandleSize, right: 0, width: resizeHandleSize, cursor: 'ew-resize' },
+    'top-left':     { top: 0, left: 0, width: resizeHandleSize * 2, height: resizeHandleSize * 2, cursor: 'nwse-resize' },
+    'top-right':    { top: 0, right: 0, width: resizeHandleSize * 2, height: resizeHandleSize * 2, cursor: 'nesw-resize' },
+    'bottom-left':  { bottom: 0, left: 0, width: resizeHandleSize * 2, height: resizeHandleSize * 2, cursor: 'nesw-resize' },
+    'bottom-right': { bottom: 0, right: 0, width: resizeHandleSize * 2, height: resizeHandleSize * 2, cursor: 'nwse-resize' },
   }
 
   return (
     <div className="fixed inset-0 z-[100] pointer-events-none" style={{ position: 'fixed' }}>
       <AnimatePresence>
-        {open && !maximized && !isMobile && (
+        {open && !maximized && (
           <motion.div
             ref={chatRef}
             initial={{ opacity: 0, scale: 0.95 }}
@@ -405,16 +439,31 @@ export const HelpBot = () => {
               <div
                 key={edge}
                 className="absolute z-50"
-                style={resizeStyleMap[edge]}
+                style={{ ...resizeStyleMap[edge], touchAction: 'none' }}
                 onMouseDown={(e) => handleResizeStart(e, edge)}
+                onTouchStart={(e) => handleResizeStart(e, edge)}
               />
             ))}
+
+            {isMobile && (
+              <button
+                type="button"
+                aria-label="Resize chat window"
+                className="absolute bottom-2 right-2 z-[60] h-9 w-9 rounded-full bg-ink/10 text-ink/80 backdrop-blur-sm"
+                style={{ touchAction: 'none' }}
+                onMouseDown={(e) => handleResizeStart(e, 'bottom-right')}
+                onTouchStart={(e) => handleResizeStart(e, 'bottom-right')}
+              >
+                <svg className="mx-auto h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16l8-8M12 16l4-4M16 16l0 0" /></svg>
+              </button>
+            )}
 
             {/* Header - drag handle */}
             <div
               className="flex items-center justify-between rounded-t-2xl bg-gradient-to-r from-accent via-leaf to-accent px-4 py-3 text-white shrink-0"
               onMouseDown={handleDragStart}
-              style={{ cursor: 'grab' }}
+              onTouchStart={handleDragStart}
+              style={{ cursor: 'grab', touchAction: 'none' }}
             >
               <div className="flex items-center gap-2">
                 <button
@@ -431,7 +480,7 @@ export const HelpBot = () => {
                   <div className="text-xs opacity-80">{showHistory ? `${chatHistory.length} conversation(s)` : 'Powered by Gemini'}</div>
                 </div>
               </div>
-              <div className="flex items-center gap-1" onMouseDown={(e) => e.stopPropagation()}>
+              <div className="flex items-center gap-1" onMouseDown={(e) => e.stopPropagation()} onTouchStart={(e) => e.stopPropagation()}>
                 {!showHistory && (
                   <button onClick={handleNewChat} className="rounded-full bg-white/20 hover:bg-white/30 p-1.5 transition-colors cursor-pointer" title="New Chat">
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
@@ -544,7 +593,7 @@ export const HelpBot = () => {
 
       {/* Maximized mode */}
       <AnimatePresence>
-        {open && (maximized || isMobile) && (
+        {open && maximized && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -574,11 +623,9 @@ export const HelpBot = () => {
                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" /></svg>
                   </button>
                 )}
-                {!isMobile && (
-                  <button onClick={() => setMaximized(false)} className="rounded-full bg-white/20 hover:bg-white/30 p-2 transition-colors cursor-pointer" title="Restore down">
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" /></svg>
-                  </button>
-                )}
+                <button onClick={() => setMaximized(false)} className="rounded-full bg-white/20 hover:bg-white/30 p-2 transition-colors cursor-pointer" title="Restore down">
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" /></svg>
+                </button>
                 <button onClick={() => setOpen(false)} className="rounded-full bg-white/20 hover:bg-white/30 px-3 py-2 text-sm font-bold transition-colors cursor-pointer">✕</button>
               </div>
             </div>
