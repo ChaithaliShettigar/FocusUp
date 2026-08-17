@@ -1,11 +1,33 @@
 import Content from '../models/Content.js'
 import Group from '../models/Group.js'
 
-const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
-if (!OPENROUTER_API_KEY) {
-  throw new Error('Missing OPENROUTER_API_KEY environment variable. Set OPENROUTER_API_KEY in your secrets manager.');
+const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY?.trim();
+const OPENROUTER_URL = 'https://openrouter.ai/api/v1/chat/completions'
+const OPENROUTER_MODELS = [
+  'openai/gpt-4o-mini',
+  'google/gemini-2.0-flash-001',
+  'google/gemini-2.0-flash-exp:free',
+  'meta-llama/llama-3.2-3b-instruct:free',
+  'qwen/qwen-2-7b-instruct:free'
+]
+
+const normalizeAIText = (content) => {
+  if (typeof content === 'string') return content.trim()
+  if (Array.isArray(content)) {
+    return content
+      .map((item) => {
+        if (typeof item === 'string') return item
+        if (item && typeof item === 'object') return item.text || item.content || ''
+        return ''
+      })
+      .join('\n')
+      .trim()
+  }
+  if (content && typeof content === 'object') {
+    return (content.text || content.content || JSON.stringify(content, null, 2) || '').trim()
+  }
+  return ''
 }
-const OPENROUTER_URL = 'https://openrouter.ai/api/v1/chat/completions' 
 
 // Study jokes collection
 const studyJokes = [
@@ -227,26 +249,26 @@ Remember: You're an intelligent AI tutor. Answer ANY question the student asks! 
 
 // Parse AI response to extract material references
 const parseAIResponse = (responseText, materials) => {
+  const textValue = typeof responseText === 'string' ? responseText : normalizeAIText(responseText)
   let parsedMaterials = []
-  let cleanText = responseText
-  
+  let cleanText = textValue
+
   // Try to extract JSON materials block
-  const jsonMatch = responseText.match(/\{"materials":\s*\[([\s\S]*?)\]\}/)
+  const jsonMatch = typeof textValue === 'string' ? textValue.match(/\{"materials":\s*\[([\s\S]*?)\]\}/) : null
   if (jsonMatch) {
     try {
       const parsed = JSON.parse(jsonMatch[0])
       parsedMaterials = parsed.materials || []
-      // Remove JSON from display text
-      cleanText = responseText.replace(jsonMatch[0], '').trim()
+      cleanText = textValue.replace(jsonMatch[0], '').trim()
     } catch (e) {
       console.log('Failed to parse materials JSON:', e)
     }
   }
-  
+
   // If no JSON found, try to match materials mentioned in text
   if (parsedMaterials.length === 0) {
     materials.forEach(m => {
-      if (responseText.toLowerCase().includes(m.title.toLowerCase())) {
+      if (textValue.toLowerCase().includes(m.title.toLowerCase())) {
         parsedMaterials.push({
           title: m.title,
           type: m.type,
@@ -257,8 +279,8 @@ const parseAIResponse = (responseText, materials) => {
       }
     })
   }
-  
-  return { text: cleanText || responseText, materials: parsedMaterials }
+
+  return { text: cleanText || textValue || 'Here is my answer for you.', materials: parsedMaterials }
 }
 
 // Simple fuzzy/material search without external libraries
@@ -425,7 +447,7 @@ export const chatWithAI = async (req, res) => {
     
     // Build system prompt
     const systemPrompt = buildSystemPrompt(materials, sessionContext)
-    
+
     // Prepare messages for API
     const messages = [
       { role: 'system', content: systemPrompt },
@@ -435,27 +457,24 @@ export const chatWithAI = async (req, res) => {
       })),
       { role: 'user', content: message }
     ]
-    
+
+    if (!OPENROUTER_API_KEY) {
+      console.error('OPENROUTER_API_KEY is missing. AI chat is disabled.')
+      return handleLocalSearch(message, materials, res)
+    }
+
     // Call OpenRouter API
     if (process.env.NODE_ENV !== 'production') {
       console.log('Calling OpenRouter API (message snippet):', (message || '').slice(0,200))
     }
-    
-    // Try multiple models in case one is rate limited
-    const models = [
-      'google/gemini-2.0-flash-exp:free',
-      'meta-llama/llama-3.2-3b-instruct:free',
-      'qwen/qwen-2-7b-instruct:free',
-      'mistralai/mistral-7b-instruct:free'
-    ]
-    
+
     let lastError = null
     let aiResponseText = null
-    
-    for (const model of models) {
+
+    for (const model of OPENROUTER_MODELS) {
       try {
         console.log('Trying model:', model)
-        
+
         const response = await fetch(OPENROUTER_URL, {
           method: 'POST',
           headers: {
@@ -465,18 +484,20 @@ export const chatWithAI = async (req, res) => {
             'X-Title': 'FocusUp HelpBot'
           },
           body: JSON.stringify({
-            model: model,
+            model,
             messages,
             max_tokens: 2000,
             temperature: 0.7
           })
         })
-        
+
         console.log('Response status for', model, ':', response.status)
-        
+
         if (response.ok) {
           const data = await response.json()
-          aiResponseText = data.choices?.[0]?.message?.content
+          const candidate = data?.choices?.[0]?.message?.content ?? data?.choices?.[0]?.text
+          aiResponseText = normalizeAIText(candidate)
+
           if (aiResponseText) {
             console.log('Success with model:', model)
             break
@@ -491,7 +512,7 @@ export const chatWithAI = async (req, res) => {
         lastError = err
       }
     }
-    
+
     if (!aiResponseText) {
       console.error('All models failed. Last error:', lastError)
       return handleLocalSearch(message, materials, res)
